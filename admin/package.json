@@ -17,7 +17,7 @@
     "cors": "^2.8.5",
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.542.0",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^9.0.5",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
     "react-bootstrap-icons": "^1.11.6",
