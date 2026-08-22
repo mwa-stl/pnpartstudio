@@ -1,0 +1,29 @@
+# --- Dependencies -----------------------------------------------------------
+node_modules/
+
+# --- Secrets ----------------------------------------------------------------
+# Holds the Mongo URI, JWT secret, PayPal keys, SMTP password and the Google
+# Cloud service-account key. Never commit it — commit .env.example instead.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+gcp-*.json
+service-account*.json
+
+# --- Runtime ----------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+uploads/
+tmp/
+.cache/
+coverage/
+
+# --- Editors and OS ---------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
