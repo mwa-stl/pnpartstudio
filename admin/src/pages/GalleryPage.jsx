@@ -44,7 +44,7 @@ const FormFields = ({ form, setFormState, fileKey, fileLabel, currentSrc, busy, 
   <>
     <div>
       <span className="label">{fileLabel} {fileKey === "file" && <span className="text-vermillion">*</span>}</span>
-      <label className="block border border-dashed border-rule-strong px-3 py-5 text-center cursor-pointer hover:border-vermillion transition-colors bg-paper-dim">
+      <label className="flex flex-col items-center justify-center gap-2.5 w-full min-h-[176px] border-2 border-dashed border-rule-strong text-center cursor-pointer hover:border-vermillion hover:bg-vermillion-wash/40 transition-all duration-200 bg-paper-dim py-6 px-3">
         <input
           type="file" accept={ACCEPT} className="sr-only"
           onChange={(e) => setFormState(f => ({ ...f, [fileKey]: e.target.files?.[0] || null }))}
@@ -53,11 +53,11 @@ const FormFields = ({ form, setFormState, fileKey, fileLabel, currentSrc, busy, 
         {form[fileKey] ? (
           <span className="flex flex-col items-center gap-2">
             {isVideoFile(form[fileKey]) ? (
-              <span className="h-24 w-24 border border-rule bg-ink text-paper flex items-center justify-center">
-                <Film size={26} />
+              <span className="h-28 w-28 border border-rule bg-ink text-paper flex items-center justify-center">
+                <Film size={28} />
               </span>
             ) : (
-              <img src={URL.createObjectURL(form[fileKey])} alt="Preview" className="h-24 w-24 object-cover border border-rule" />
+              <img src={URL.createObjectURL(form[fileKey])} alt="Preview" className="h-28 w-28 object-cover border border-rule" />
             )}
             <span className="text-[0.78rem] text-graphite truncate max-w-full">{form[fileKey].name}</span>
             <span className="text-[0.72rem] text-slate">
@@ -67,12 +67,13 @@ const FormFields = ({ form, setFormState, fileKey, fileLabel, currentSrc, busy, 
           </span>
         ) : currentSrc ? (
           <span className="flex flex-col items-center gap-2">
-            <img src={currentSrc} alt="Current" className="h-24 w-24 object-cover border border-rule" />
-            <span className="text-[0.78rem] text-slate">Click to replace</span>
+            <img src={currentSrc} alt="Current" className="h-28 w-28 object-cover border border-rule" />
+            <span className="font-mono text-[0.62rem] uppercase tracking-[0.1em] text-slate">Click or drop to replace</span>
           </span>
         ) : (
-          <span className="flex flex-col items-center text-slate text-[0.85rem]">
-            <Upload size={22} className="mb-2 text-vermillion" /> Click to choose an image or video
+          <span className="flex flex-col items-center gap-2 text-slate">
+            <Upload size={28} strokeWidth={1.6} className="text-vermillion" />
+            <span className="font-mono text-[0.62rem] uppercase tracking-[0.1em] text-graphite">Click to choose an image or video</span>
           </span>
         )}
       </label>

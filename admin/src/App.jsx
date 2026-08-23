@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "rea
 import AdminLayout from "./layout/AdminLayout.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import ProductsPage from "./pages/ProductsPage.jsx";
+import CategoriesPage from "./pages/CategoriesPage.jsx";
 import ClassesPage from "./pages/ClassesPage.jsx";
 import GalleryPage from "./pages/GalleryPage.jsx";
 import OrdersPage from "./pages/OrdersPage.jsx";
@@ -40,6 +41,7 @@ export default function App() {
         <Route element={<RequireAdmin />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="products" replace />} />
+            <Route path="categories" element={<CategoriesPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="classes" element={<ClassesPage />} />
             <Route path="gallery" element={<GalleryPage />} />

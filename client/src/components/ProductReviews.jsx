@@ -351,25 +351,28 @@ const ProductReviews = ({ productId, productTitle }) => {
             <ul className="border-t border-ink">
               {data.items.map((r, i) => (
                 <Reveal key={r._id} delay={Math.min(i, 4) * 0.05}>
-                  <li className="py-7 border-b border-rule">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
+                  <li className="py-4 border-b border-rule">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mb-2">
+                      {r.avatarUrl && (
+                        <img src={r.avatarUrl} alt="" className="w-5 h-5 rounded-full border border-rule shrink-0" />
+                      )}
                       <Stars rating={r.rating} />
-                      <span className="font-mono text-[0.66rem] uppercase tracking-[0.1em] text-ink">{r.name}</span>
-                      <span className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-slate ml-auto">
+                      <span className="font-mono text-[0.64rem] uppercase tracking-[0.1em] text-ink">{r.name}</span>
+                      <span className="font-mono text-[0.54rem] uppercase tracking-[0.12em] text-slate ml-auto">
                         {fmtDate(r.createdAt)}
                       </span>
                     </div>
-                    {r.title && <h3 className="t-title !text-[1.02rem] mb-2">{r.title}</h3>}
-                    <p className="text-graphite text-[0.92rem] leading-relaxed whitespace-pre-line max-w-2xl">{r.body}</p>
+                    {r.title && <h3 className="t-title !text-[0.94rem] mb-1">{r.title}</h3>}
+                    <p className="text-graphite text-[0.86rem] leading-normal whitespace-pre-line max-w-2xl">{r.body}</p>
 
                     {r.photos?.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-4">
+                      <div className="flex flex-wrap gap-2 mt-2.5">
                         {r.photos.map((url, n) => (
                           <button
                             key={url}
                             type="button"
                             onClick={() => setLightbox(url)}
-                            className="w-24 h-24 border border-rule overflow-hidden hover:border-ink transition-colors"
+                            className="w-16 h-16 border border-rule overflow-hidden hover:border-ink transition-colors"
                             aria-label={`View photo ${n + 1} from ${r.name}`}
                           >
                             <img

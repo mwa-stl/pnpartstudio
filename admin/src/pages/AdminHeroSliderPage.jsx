@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Edit2, Trash2, Loader2, UploadCloud, X, Plus, Images } from "lucide-react";
+import { Edit2, Trash2, Loader2, X, Plus, Images } from "lucide-react";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 import { toast } from 'react-toastify';
 import LinkPicker from '../components/ui/LinkPicker.jsx';
 import { uploadImage } from '../api/media.js';
@@ -21,7 +22,6 @@ const AdminHeroSliderPage = () => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const inputFile = useRef();
   const confirm = useConfirm();
 
   const loadSlides = useCallback(async () => {
@@ -48,7 +48,6 @@ const AdminHeroSliderPage = () => {
     setUploading(false);
     setSubmitting(false);
     setFormError("");
-    if (inputFile.current) inputFile.current.value = "";
   }, []);
 
   useEffect(() => {
@@ -60,8 +59,7 @@ const AdminHeroSliderPage = () => {
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleImageChange = async e => {
-    const file = e.target.files?.[0];
+  const handleImageChange = async file => {
     if (!file) return;
     setUploading(true);
     try {
@@ -72,7 +70,6 @@ const AdminHeroSliderPage = () => {
       toast.error(err.message || "Upload failed");
     } finally {
       setUploading(false);
-      if (inputFile.current) inputFile.current.value = "";
     }
   };
 
@@ -213,24 +210,16 @@ const AdminHeroSliderPage = () => {
               )}
 
               <div>
-                <span className="label">Image <span className="text-vermillion">*</span></span>
-                <label className="w-full h-44 flex flex-col items-center justify-center bg-paper-dim cursor-pointer border border-dashed border-rule-strong hover:border-vermillion transition-colors relative overflow-hidden">
-                  {form.image ? (
-                    <img src={form.image} alt="Slide preview" className="object-cover w-full h-full" />
-                  ) : (
-                    <span className="flex flex-col items-center text-slate text-[0.85rem]">
-                      {uploading
-                        ? <><Loader2 size={26} className="mb-2 animate-spin text-vermillion" /> Uploading…</>
-                        : <><UploadCloud size={26} className="mb-2 text-vermillion" /> Click to upload an image</>}
-                    </span>
-                  )}
-                  <input
-                    type="file" accept="image/*" name="image" ref={inputFile}
-                    disabled={uploading} onChange={handleImageChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    aria-label="Select hero image"
-                  />
-                </label>
+                <ImageDropzone
+                  id="hs-image"
+                  label="Image"
+                  required
+                  size="wide"
+                  previewUrl={form.image}
+                  uploading={uploading}
+                  onChange={handleImageChange}
+                  onRemove={() => setForm(f => ({ ...f, image: "" }))}
+                />
               </div>
 
               <div>

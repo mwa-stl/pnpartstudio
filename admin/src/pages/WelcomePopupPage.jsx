@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Loader2, Save, RotateCcw, UploadCloud, X } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import Select from "../components/ui/Select.jsx";
 import { uploadImage } from "../api/media.js";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import FloatingSaveBar from "../components/FloatingSaveBar.jsx";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 
 const API = (import.meta.env.VITE_API_URL ?? "") + "/api/promo-popup";
 
@@ -62,7 +64,6 @@ const WelcomePopupPage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const fileRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,8 +81,7 @@ const WelcomePopupPage = () => {
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
-  const handleImage = async (e) => {
-    const file = e.target.files?.[0];
+  const handleImage = async (file) => {
     if (!file) return;
     setUploading(true);
     try {
@@ -92,7 +92,6 @@ const WelcomePopupPage = () => {
       toast.error(err.message || "Upload failed");
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   };
 
@@ -175,22 +174,14 @@ const WelcomePopupPage = () => {
         </Section>
 
         <Section n="02" title="Image" blurb="The panel on the left of the popup. Leave empty to use the bundled artwork.">
-          <div className="flex items-start gap-4 flex-wrap">
-            <label className="btn btn-ghost cursor-pointer">
-              <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={handleImage} disabled={uploading} />
-              {uploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
-              {uploading ? "Uploading…" : "Choose image"}
-            </label>
-            {form.image && (
-              <div className="relative">
-                <img src={form.image} alt="Popup preview" className="w-32 h-32 object-cover border border-rule" />
-                <button type="button" onClick={() => set("image", "")}
-                  className="absolute top-0 right-0 bg-ink text-paper p-1" aria-label="Remove image">
-                  <X size={12} />
-                </button>
-              </div>
-            )}
-          </div>
+          <ImageDropzone
+            id="pp-image"
+            size="wide"
+            previewUrl={form.image}
+            uploading={uploading}
+            onChange={handleImage}
+            onRemove={() => set("image", "")}
+          />
           <Field id="pp-badge" label="Image caption" value={form.imageBadge}
             onChange={(e) => set("imageBadge", e.target.value)} placeholder="PnP Artstudio"
             hint="The small black tag in the corner of the image." />
@@ -242,14 +233,12 @@ const WelcomePopupPage = () => {
           </div>
         </Section>
 
-        <div className="sticky bottom-0 -mx-1 px-1 py-4 bg-paper border-t border-ink flex flex-wrap items-center gap-3">
-          <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
-            {saving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : <><Save size={15} /> Save popup</>}
-          </button>
-          <span className="text-[0.78rem] text-slate">
-            {form.enabled ? "The popup is switched on." : "The popup is switched off — visitors will not see it."}
-          </span>
-        </div>
+        <FloatingSaveBar
+          saving={saving}
+          disabled={saving || uploading}
+          label="Save popup"
+          helperText={form.enabled ? "The popup is switched on." : "The popup is switched off — visitors will not see it."}
+        />
       </form>
     </div>
   );

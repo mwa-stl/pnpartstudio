@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { Search, X } from "lucide-react";
+import { Search, Receipt, Loader2 } from "lucide-react";
 import Reveal, { RevealLines } from "../components/motion/Reveal";
+import PageHeroMedia from "../components/PageHeroMedia";
 import usePageHero from "../hooks/usePageHero";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -25,6 +26,7 @@ const TrackOrderPage = () => {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const stepIndex = useMemo(() => {
     if (!order?.status) return -1;
@@ -60,6 +62,8 @@ const TrackOrderPage = () => {
         ...found,
         subtotal: found.totals?.subtotal ?? 0,
         shipping: found.totals?.shipping ?? 0,
+        tax: found.totals?.tax ?? 0,
+        discount: found.totals?.discount ?? 0,
         total: found.totals?.grandTotal ?? 0,
         status: (found.status || "pending").toLowerCase()
       });
@@ -82,6 +86,27 @@ const TrackOrderPage = () => {
   const onSubmit = (e) => {
     e.preventDefault();
     lookup(orderId);
+  };
+
+  const downloadInvoice = async () => {
+    if (!order?.referenceId) return;
+    setDownloading(true);
+    try {
+      const url = `${API_BASE}/api/orders/ref/${encodeURIComponent(order.referenceId)}/invoice.pdf`;
+      const res = await axios.get(url, { responseType: "blob" });
+      const blobUrl = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `invoice-${order.referenceId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Could not download the invoice");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const currentLabel = DEFAULT_STEPS.find(s => s.key === order?.status)?.label || "Processing";
@@ -111,9 +136,8 @@ const TrackOrderPage = () => {
       n: "03",
       title: "Payment",
       rows: [
+        ["Method", order.paymentMethod ? String(order.paymentMethod).toUpperCase() : "—"],
         ["Items", String(Array.isArray(order.items) ? order.items.length : 0)],
-        ["Subtotal", order.subtotal != null ? fmtUSD.format(Number(order.subtotal)) : "—"],
-        ["Shipping", order.shipping != null ? fmtUSD.format(Number(order.shipping)) : "—"],
       ],
     },
   ] : [];
@@ -157,6 +181,13 @@ const TrackOrderPage = () => {
               </p>
             </div>
           </div>
+          {hero.image && (
+            <PageHeroMedia
+              src={hero.image}
+              alt=""
+              className="w-full h-[220px] sm:h-[300px] object-cover border border-ink mt-10"
+            />
+          )}
         </div>
       </div>
 
@@ -239,48 +270,106 @@ const TrackOrderPage = () => {
               ))}
             </div>
 
-            {/* Total */}
-            <div className="flex justify-between items-baseline pb-6 mb-10 border-b border-ink">
-              <span className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-graphite">Order total</span>
-              <span className="font-mono text-[1.6rem] font-medium text-ink tabular-nums">
-                {order.total != null ? fmtUSD.format(Number(order.total)) : "—"}
-              </span>
-            </div>
-
             {/* Items */}
             <h2 className="label-mono mb-5">Items</h2>
-            <ul className="border-t border-rule">
-              {(order?.items || []).map((it, idx) => (
-                <li key={idx} className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-4 py-4 border-b border-rule">
-                  <span className="font-mono text-[0.6rem] text-slate tabular-nums">
-                    {String(idx + 1).padStart(2, "0")}
-                  </span>
-                  {it.image ? (
-                    <img
-                      src={it.image}
-                      alt=""
-                      className="w-14 h-14 object-cover border border-rule bg-paper-deep"
-                      loading="lazy"
-                      onError={e => { e.currentTarget.style.display = "none"; }}
-                    />
-                  ) : <span className="w-14" />}
-                  <div className="min-w-0">
-                    <div className="t-title !text-[0.95rem] truncate" title={it.title}>{it.title}</div>
-                    <div className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-slate mt-1">
-                      Qty {it.qty || it.quantity || it.qtyOrdered || 1}
+            <ul className="border-t border-ink mb-12">
+              {(order?.items || []).map((it, idx) => {
+                const qty = Number(it.qty || it.quantity || it.qtyOrdered || 1);
+                const price = it.price != null ? Number(it.price) : null;
+                const lineTotal = price != null ? price * qty : null;
+                return (
+                  <li key={idx} className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-4 py-5 border-b border-rule">
+                    <span className="font-mono text-[0.6rem] text-slate tabular-nums">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    {it.image ? (
+                      <img
+                        src={it.image}
+                        alt=""
+                        className="w-16 h-16 object-cover border border-rule bg-paper-deep"
+                        loading="lazy"
+                        onError={e => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : <span className="w-16" />}
+                    <div className="min-w-0">
+                      <div className="t-title !text-[0.95rem] truncate" title={it.title}>{it.title}</div>
+                      <div className="font-mono text-[0.56rem] uppercase tracking-[0.12em] text-slate mt-1">
+                        Qty {qty}
+                      </div>
                     </div>
-                  </div>
-                  <div className="font-mono text-[0.9rem] text-ink tabular-nums text-right shrink-0">
-                    {it.price != null ? fmtUSD.format(Number(it.price)) : ""}
-                  </div>
-                </li>
-              ))}
+                    <div className="font-mono text-[0.9rem] text-ink tabular-nums text-right shrink-0">
+                      {price == null ? (
+                        ""
+                      ) : qty > 1 ? (
+                        <>
+                          <span className="text-slate text-[0.72rem]">{fmtUSD.format(price)} &times; {qty} =</span>{" "}
+                          <span className="font-medium">{fmtUSD.format(lineTotal)}</span>
+                        </>
+                      ) : (
+                        fmtUSD.format(price)
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
               {(!order?.items || order.items.length === 0) && (
                 <li className="text-slate text-center py-6 font-mono text-[0.62rem] uppercase tracking-[0.12em]">
                   No items recorded on this order
                 </li>
               )}
             </ul>
+
+            {/* Totals */}
+            <div className="max-w-sm ml-auto mb-14">
+              <dl className="flex flex-col gap-2.5 text-[0.85rem]">
+                <div className="flex justify-between text-graphite">
+                  <dt>Subtotal</dt>
+                  <dd className="font-mono text-ink tabular-nums">
+                    {order.subtotal != null ? fmtUSD.format(Number(order.subtotal)) : "—"}
+                  </dd>
+                </div>
+                {order.discount > 0 && (
+                  <div className="flex justify-between text-graphite">
+                    <dt>Discount</dt>
+                    <dd className="font-mono tabular-nums" style={{ color: "var(--color-forest, #1F6B4A)" }}>
+                      &minus;{fmtUSD.format(Number(order.discount))}
+                    </dd>
+                  </div>
+                )}
+                <div className="flex justify-between text-graphite">
+                  <dt>Shipping</dt>
+                  <dd className="font-mono text-ink tabular-nums">
+                    {Number(order.shipping) > 0 ? fmtUSD.format(Number(order.shipping)) : "Free"}
+                  </dd>
+                </div>
+                {order.tax > 0 && (
+                  <div className="flex justify-between text-graphite">
+                    <dt>Tax</dt>
+                    <dd className="font-mono text-ink tabular-nums">{fmtUSD.format(Number(order.tax))}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between items-baseline pt-3 border-t border-ink">
+                  <dt className="font-mono text-[0.66rem] uppercase tracking-[0.16em] text-graphite">Order total</dt>
+                  <dd className="font-mono text-[1.6rem] font-medium text-ink tabular-nums">
+                    {order.total != null ? fmtUSD.format(Number(order.total)) : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            {order.status === "delivered" && (
+              <div className="flex justify-end mb-4">
+                <button
+                  type="button"
+                  onClick={downloadInvoice}
+                  disabled={downloading}
+                  className="btn-k btn-k-sm btn-k-outline"
+                >
+                  {downloading ? <Loader2 size={13} className="animate-spin" /> : <Receipt size={13} />}
+                  {downloading ? "Preparing…" : "Download invoice (PDF)"}
+                </button>
+              </div>
+            )}
           </Reveal>
         )}
       </div>

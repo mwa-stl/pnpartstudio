@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { Edit2, Trash2, Plus, Star, X, Loader2, UploadCloud, MessageSquareQuote } from "lucide-react";
+import { Edit2, Trash2, Plus, Star, X, Loader2, MessageSquareQuote } from "lucide-react";
 import { toast } from "react-toastify";
 import { uploadImage } from "../api/media.js";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 import ConfirmDialog from "../components/ui/ConfirmDialog.jsx";
 import useConfirm from "../hooks/useConfirm.js";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
@@ -169,8 +170,6 @@ function TestimonialUploadModal({ show, onClose, onSuccess, editTestimonial }) {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef();
-
   useEffect(() => {
     if (show) {
       setForm(editTestimonial ? { ...editTestimonial } : { ...blank });
@@ -187,8 +186,7 @@ function TestimonialUploadModal({ show, onClose, onSuccess, editTestimonial }) {
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleImageChange = async (e) => {
-    const file = e.target.files?.[0];
+  const handleImageChange = async (file) => {
     if (!file) return;
     setUploading(true);
     setError('');
@@ -200,16 +198,15 @@ function TestimonialUploadModal({ show, onClose, onSuccess, editTestimonial }) {
       setError(err.message || "Image upload failed");
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const { name, city, rating, review, imageUrl } = form;
-    if (!name || !city || !rating || !review || !imageUrl) {
-      setError("All fields, including an uploaded image, are required.");
+    const { name, city, rating, review } = form;
+    if (!name || !city || !rating || !review) {
+      setError("All fields are required.");
       return;
     }
     setSubmitting(true);
@@ -283,28 +280,21 @@ function TestimonialUploadModal({ show, onClose, onSuccess, editTestimonial }) {
           </div>
 
           <div>
-            <span className="label">Photo</span>
-            <label className="block border border-dashed border-rule-strong px-3 py-4 text-center cursor-pointer hover:border-vermillion transition-colors bg-paper-dim">
-              <input
-                type="file" accept="image/*" ref={fileInputRef} className="sr-only"
-                onChange={handleImageChange} disabled={uploading}
-              />
-              {form.imageUrl ? (
-                <img src={form.imageUrl} alt="Testimonial portrait" className="mx-auto h-20 w-20 rounded-full object-cover border border-rule" />
-              ) : (
-                <span className="flex flex-col items-center text-slate text-[0.85rem]">
-                  {uploading
-                    ? <><Loader2 size={22} className="mb-2 animate-spin text-vermillion" /> Uploading…</>
-                    : <><UploadCloud size={22} className="mb-2 text-vermillion" /> Click to upload a photo</>}
-                </span>
-              )}
-            </label>
+            <ImageDropzone
+              id="t-photo"
+              label="Photo (optional)"
+              previewUrl={form.imageUrl}
+              uploading={uploading}
+              onChange={handleImageChange}
+              onRemove={() => setForm((f) => ({ ...f, imageUrl: "" }))}
+              hint="Leave empty and a default avatar is generated automatically."
+            />
           </div>
 
           </div>
 
           <div className="modal-foot px-6 py-4 flex gap-2">
-            <button className="btn btn-primary flex-1" type="submit" disabled={submitting || uploading || !form.imageUrl}>
+            <button className="btn btn-primary flex-1" type="submit" disabled={submitting || uploading}>
               {submitting
                 ? <><Loader2 size={15} className="animate-spin" /> Saving…</>
                 : (editTestimonial ? 'Update testimonial' : 'Add testimonial')}

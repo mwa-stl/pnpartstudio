@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Loader2, UploadCloud, Save, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ListEditor, RowEditor } from '../components/ui/RepeatableFields.jsx';
 import { uploadImage } from '../api/media.js';
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import FloatingSaveBar from "../components/FloatingSaveBar.jsx";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 
 const API = (import.meta.env.VITE_API_URL ?? '') + '/api/artist-profile';
 
@@ -81,8 +83,6 @@ const ArtistProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const inputFile = useRef(null);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -101,8 +101,7 @@ const ArtistProfilePage = () => {
   const setHome = (key, value) => setForm(f => ({ ...f, home: { ...f.home, [key]: value } }));
   const setAbout = (key, value) => setForm(f => ({ ...f, about: { ...f.about, [key]: value } }));
 
-  const handleImageChange = async (e) => {
-    const file = e.target.files?.[0];
+  const handleImageChange = async (file) => {
     if (!file) return;
     setUploading(true);
     try {
@@ -113,7 +112,6 @@ const ArtistProfilePage = () => {
       toast.error(err.message || 'Upload failed');
     } finally {
       setUploading(false);
-      if (inputFile.current) inputFile.current.value = '';
     }
   };
 
@@ -175,27 +173,16 @@ const ArtistProfilePage = () => {
         <Section n="01" title="Identity" blurb="Shown on both pages — the photo, the name caption, and the location badge.">
           <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-5">
             <div>
-              <span className="label">Photo</span>
-              <label className="w-full h-52 flex flex-col items-center justify-center bg-paper-dim cursor-pointer border border-dashed border-rule-strong hover:border-vermillion transition-colors relative overflow-hidden">
-                {form.photo ? (
-                  <img src={form.photo} alt="Artist preview" className="object-cover w-full h-full" />
-                ) : (
-                  <span className="flex flex-col items-center text-slate text-[0.85rem] text-center px-3">
-                    {uploading
-                      ? <><Loader2 size={24} className="mb-2 animate-spin text-vermillion" /> Uploading…</>
-                      : <><UploadCloud size={24} className="mb-2 text-vermillion" /> Click to upload</>}
-                  </span>
-                )}
-                <input
-                  type="file" accept="image/*" ref={inputFile}
-                  disabled={uploading} onChange={handleImageChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  aria-label="Select artist photo"
-                />
-              </label>
-              <p className="text-[0.74rem] text-slate mt-2">
-                Leave empty to keep the photo bundled with the site.
-              </p>
+              <ImageDropzone
+                id="ap-photo"
+                label="Photo"
+                size="wide"
+                previewUrl={form.photo}
+                uploading={uploading}
+                onChange={handleImageChange}
+                onRemove={() => setField('photo', '')}
+                hint="Leave empty to keep the photo bundled with the site."
+              />
             </div>
 
             <div className="flex flex-col gap-4">
@@ -359,13 +346,12 @@ const ArtistProfilePage = () => {
           </div>
         </Section>
 
-        {/* Sticky save bar — the form is long, so the action stays reachable. */}
-        <div className="sticky bottom-0 -mx-1 px-1 py-4 bg-paper border-t border-ink flex flex-wrap items-center gap-3">
-          <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
-            {saving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : <><Save size={15} /> Save profile</>}
-          </button>
-          <span className="text-[0.78rem] text-slate">Changes go live on the storefront immediately.</span>
-        </div>
+        <FloatingSaveBar
+          saving={saving}
+          disabled={saving || uploading}
+          label="Save profile"
+          helperText="Changes go live on the storefront immediately."
+        />
       </form>
     </div>
   );

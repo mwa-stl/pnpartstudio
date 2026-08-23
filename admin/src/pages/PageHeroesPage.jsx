@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Loader2, Save, RotateCcw, UploadCloud, X } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
+import FloatingSaveBar from '../components/FloatingSaveBar.jsx';
 import Select from '../components/ui/Select.jsx';
 import LinkPicker from '../components/ui/LinkPicker.jsx';
 import { ListEditor } from '../components/ui/RepeatableFields.jsx';
-import { uploadImage } from '../api/media.js';
+import { uploadMedia } from '../api/media.js';
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 
 const API = (import.meta.env.VITE_API_URL ?? '') + '/api/page-heroes';
 
@@ -43,7 +45,6 @@ const PageHeroesPage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const fileRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,19 +73,17 @@ const PageHeroesPage = () => {
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
-  const handleImage = async (e) => {
-    const file = e.target.files?.[0];
+  const handleImage = async (file) => {
     if (!file) return;
     setUploading(true);
     try {
-      const { url } = await uploadImage(file, { folder: 'pages' });
+      const { url } = await uploadMedia(file, { folder: 'pages' });
       set('image', url);
-      toast.success('Image uploaded');
+      toast.success(file.type?.startsWith('video/') ? 'Video uploaded' : 'Image uploaded');
     } catch (err) {
       toast.error(err.message || 'Upload failed');
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -218,36 +217,29 @@ const PageHeroesPage = () => {
           </div>
 
           <div>
-            <span className="label">Masthead image</span>
-            <div className="flex items-start gap-4 flex-wrap">
-              <label className="btn btn-ghost cursor-pointer">
-                <input ref={fileRef} type="file" accept="image/*" className="sr-only"
-                  onChange={handleImage} disabled={uploading} />
-                {uploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
-                {uploading ? 'Uploading…' : 'Choose image'}
-              </label>
-              {form.image && (
-                <div className="relative">
-                  <img src={form.image} alt="Masthead preview" className="w-40 h-24 object-cover border border-rule" />
-                  <button type="button" onClick={() => set('image', '')}
-                    className="absolute top-0 right-0 bg-ink text-paper p-1" aria-label="Remove image">
-                    <X size={12} />
-                  </button>
-                </div>
-              )}
-            </div>
+            <ImageDropzone
+              id="ph-image"
+              label="Masthead image or video"
+              size="wide"
+              accept="image/*,video/mp4,video/quicktime,video/webm,video/x-matroska"
+              previewUrl={form.image}
+              uploading={uploading}
+              onChange={handleImage}
+              onRemove={() => set('image', '')}
+            />
             <p className="text-[0.76rem] text-slate mt-2">
-              Optional. Pages that already have their own artwork (the classes film, the gallery grid) ignore this.
+              A GIF loops on its own; a video is set to autoplay, loop, and stay silent. Optional — pages
+              that already have their own artwork (the classes film, the custom-order film, the gallery grid) ignore this.
             </p>
           </div>
         </section>
 
-        <div className="sticky bottom-0 -mx-1 px-1 py-4 bg-paper border-t border-ink flex flex-wrap items-center gap-3">
-          <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
-            {saving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : <><Save size={15} /> Save masthead</>}
-          </button>
-          <span className="text-[0.78rem] text-slate">Saving affects only the {current?.label} page.</span>
-        </div>
+        <FloatingSaveBar
+          saving={saving}
+          disabled={saving || uploading}
+          label="Save masthead"
+          helperText={`Saving affects only the ${current?.label} page.`}
+        />
       </form>
     </div>
   );

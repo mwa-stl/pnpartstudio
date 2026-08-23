@@ -7,6 +7,20 @@ const ScrollToTop = ({ behavior = "instant" }) => {
   const { pathname, search, hash } = useLocation();
   const lenis = useLenis();
 
+  /*
+   * Browsers restore the previous scroll offset on reload, and they do it
+   * after this component's first render — so refreshing halfway down a page
+   * dropped the visitor back at the footer, past the effect below that only
+   * fires on a route *change*. Opting out of the browser's own restoration
+   * hands scroll position back to the effect in every case, reload included.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined" || !("scrollRestoration" in window.history)) return undefined;
+    const previous = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    return () => { window.history.scrollRestoration = previous; };
+  }, []);
+
   useEffect(() => {
     // If there is a hash (#section), try to scroll that element into view
     if (hash) {

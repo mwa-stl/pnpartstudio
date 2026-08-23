@@ -1,12 +1,18 @@
 import Testimonial from '../models/Testimonial.js';
+import { generatePersonAvatar } from '../lib/avatar.js';
 
 export async function createTestimonial(req, res) {
   try {
     const { name, city, rating, review, imageUrl } = req.body;
-    if (!name || !city || !rating || !review || !imageUrl) {
+    if (!name || !city || !rating || !review) {
       return res.status(400).json({ success: false, error: 'All fields are required.' });
     }
-    const testimonial = await Testimonial.create({ name, city, rating, review, imageUrl });
+    // No photo uploaded stand in with a generated avatar rather than
+    // blocking the testimonial on having a real photo.
+    const testimonial = await Testimonial.create({
+      name, city, rating, review,
+      imageUrl: imageUrl || generatePersonAvatar(name),
+    });
     res.status(201).json({ success: true, testimonial });
   } catch (e) {
     res.status(500).json({ success: false, error: 'Failed to create testimonial', message: e.message });
@@ -27,7 +33,9 @@ export async function updateTestimonial(req, res) {
     const { id } = req.params;
     const { name, city, rating, review, imageUrl } = req.body;
     const testimonial = await Testimonial.findByIdAndUpdate(
-      id, { name, city, rating, review, imageUrl }, { new: true, runValidators: true }
+      id,
+      { name, city, rating, review, imageUrl: imageUrl || generatePersonAvatar(name) },
+      { new: true, runValidators: true }
     );
     if (!testimonial)
       return res.status(404).json({ success: false, error: 'Testimonial not found' });

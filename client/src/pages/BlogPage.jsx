@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Search, X, ArrowUpRight } from 'lucide-react';
 import Reveal, { RevealLines } from '../components/motion/Reveal';
 import Select from '../components/ui/Select';
+import PageHeroMedia from '../components/PageHeroMedia';
 import usePageHero from '../hooks/usePageHero';
 import { posts, allCategories, allTags, formatDate } from '../data/blogPosts';
 
@@ -92,6 +93,13 @@ const BlogPage = () => {
               <p className="text-graphite leading-relaxed max-w-md">{hero.intro}</p>
             )}
           </div>
+          {hero.image && (
+            <PageHeroMedia
+              src={hero.image}
+              alt=""
+              className="w-full h-[220px] sm:h-[300px] object-cover border border-ink mt-10"
+            />
+          )}
         </div>
       </div>
 

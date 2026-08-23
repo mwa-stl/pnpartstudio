@@ -9,6 +9,7 @@ export const NAV_GROUPS = [
   {
     label: "Catalogue",
     links: [
+      { to: "/admin/categories", label: "Categories" },
       { to: "/admin/products", label: "Products" },
       { to: "/admin/classes", label: "Classes" },
       { to: "/admin/gallery", label: "Gallery" },

@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, AlertTriangle, Loader2, X
 } from "lucide-react";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 import { uploadImage } from "../api/media.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -174,44 +175,29 @@ const NewslettersPage = () => {
                 value={footerHtml} onChange={(e) => setFooterHtml(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="nl-image" className="label">Hero image (optional)</label>
-              <div className="flex items-start gap-3 flex-wrap">
-                <label className="btn btn-ghost cursor-pointer">
-                  <input
-                    type="file" accept="image/*" className="sr-only" disabled={uploadingImage}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = "";
-                      if (!file) return;
-                      setUploadingImage(true);
-                      try {
-                        const { url } = await uploadImage(file, { folder: "newsletters" });
-                        setImageUrl(url);
-                        toast.success("Image uploaded");
-                      } catch (err) {
-                        toast.error(err.message || "Upload failed");
-                      } finally {
-                        setUploadingImage(false);
-                      }
-                    }}
-                  />
-                  {uploadingImage ? <Loader2 size={15} className="animate-spin" /> : <Mail size={15} />}
-                  {uploadingImage ? "Uploading…" : "Choose image"}
-                </label>
-                {imageUrl && (
-                  <div className="relative">
-                    <img src={imageUrl} alt="Newsletter hero" className="w-28 h-20 object-cover border border-rule" />
-                    <button
-                      type="button" onClick={() => setImageUrl("")}
-                      className="absolute top-0 right-0 bg-ink text-paper p-1" aria-label="Remove image"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                )}
-              </div>
+              <ImageDropzone
+                id="nl-image"
+                label="Hero image (optional)"
+                size="wide"
+                previewUrl={imageUrl}
+                uploading={uploadingImage}
+                onRemove={() => setImageUrl("")}
+                onChange={async (file) => {
+                  if (!file) return;
+                  setUploadingImage(true);
+                  try {
+                    const { url } = await uploadImage(file, { folder: "newsletters" });
+                    setImageUrl(url);
+                    toast.success("Image uploaded");
+                  } catch (err) {
+                    toast.error(err.message || "Upload failed");
+                  } finally {
+                    setUploadingImage(false);
+                  }
+                }}
+              />
               <input
-                id="nl-image" type="url" className="field mt-2.5"
+                id="nl-image-url" type="url" className="field mt-2.5"
                 placeholder="…or paste an image URL"
                 value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
               />

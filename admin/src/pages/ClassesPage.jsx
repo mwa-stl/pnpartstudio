@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Edit2, Trash2, Image as ImageIcon, Plus, Save, X, GraduationCap, Loader2 } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Edit2, Trash2, Image as ImageIcon, Plus, X, GraduationCap, Loader2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import Select from "../components/ui/Select.jsx";
@@ -9,6 +9,8 @@ import { ListEditor, PairEditor, TripleEditor } from "../components/ui/Repeatabl
 import ConfirmDialog from "../components/ui/ConfirmDialog.jsx";
 import useConfirm from "../hooks/useConfirm.js";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import FloatingSaveBar from "../components/FloatingSaveBar.jsx";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const CLASSES_URL = `${API_BASE}/api/classes`;
@@ -107,8 +109,6 @@ const ClassesPage = () => {
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
-  const fileRef = useRef(null);
-  const galleryRef = useRef(null);
   const confirm = useConfirm();
 
   const load = useCallback(async () => {
@@ -133,7 +133,6 @@ const ClassesPage = () => {
     if (!file) {
       setCoverPreview("");
       set("cover", "");
-      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     try {
@@ -167,7 +166,6 @@ const ClassesPage = () => {
       toast.error(e.message || "Image upload failed");
     } finally {
       setUploadingGallery(false);
-      if (galleryRef.current) galleryRef.current.value = "";
     }
   };
 
@@ -177,7 +175,6 @@ const ClassesPage = () => {
     setCoverPreview("");
     setFormError("");
     setShowForm(false);
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   const saveClass = async (e) => {
@@ -443,38 +440,28 @@ const ClassesPage = () => {
             {/* 04 Media */}
             <FormSection n="04" title="Images" blurb="The cover leads the card. Extra images appear as a strip on the detail page.">
               <div>
-                <span className="label">Cover image</span>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <label className="btn btn-ghost cursor-pointer">
-                    <input ref={fileRef} type="file" accept="image/*" className="sr-only"
-                      onChange={(e) => handleCoverFile(e.target.files?.[0] || null)} />
-                    {uploadingCover ? <Loader2 size={15} className="animate-spin" /> : <ImageIcon size={15} />}
-                    {uploadingCover ? "Uploading…" : "Choose image"}
-                  </label>
-                  {(coverPreview || form.cover) && (
-                    <>
-                      <img src={coverPreview || form.cover} alt="Cover preview"
-                        className="w-16 h-16 object-cover border border-rule" />
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => handleCoverFile(null)}>
-                        Remove
-                      </button>
-                    </>
-                  )}
-                </div>
+                <ImageDropzone
+                  id="cl-cover"
+                  label="Cover image"
+                  size="wide"
+                  previewUrl={coverPreview || form.cover}
+                  uploading={uploadingCover}
+                  onChange={handleCoverFile}
+                  onRemove={() => handleCoverFile(null)}
+                />
               </div>
 
               <div>
-                <span className="label">Extra images</span>
-                <div className="flex items-center gap-3 flex-wrap mb-3">
-                  <label className="btn btn-ghost cursor-pointer">
-                    <input ref={galleryRef} type="file" accept="image/*" multiple className="sr-only"
-                      onChange={(e) => handleGalleryFiles(e.target.files)} />
-                    {uploadingGallery ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                    {uploadingGallery ? "Uploading…" : "Add images"}
-                  </label>
-                </div>
+                <ImageDropzone
+                  id="cl-gallery"
+                  label="Extra images"
+                  size="wide"
+                  multiple
+                  uploading={uploadingGallery}
+                  onFiles={handleGalleryFiles}
+                />
                 {form.gallery.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {form.gallery.map((url, i) => (
                       <div key={`${url}-${i}`} className="relative group">
                         <img src={url} alt="" className="w-20 h-20 object-cover border border-rule" />
@@ -574,14 +561,12 @@ const ClassesPage = () => {
             </div>
           )}
 
-          <div className="px-5 py-4 border-t border-rule flex gap-2 flex-wrap sticky bottom-0 bg-surface">
-            <button type="submit" className="btn btn-primary" disabled={saving || uploadingCover || uploadingGallery}>
-              {saving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : <><Save size={15} /> {editingId ? "Update class" : "Create class"}</>}
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={resetForm} disabled={saving || uploadingCover}>
-              Cancel
-            </button>
-          </div>
+          <FloatingSaveBar
+            saving={saving}
+            disabled={saving || uploadingCover || uploadingGallery}
+            label={editingId ? "Update class" : "Create class"}
+            helperText={editingId ? "Changes go live on the storefront immediately." : "New classes appear on the storefront once saved."}
+          />
         </form>
       )}
 

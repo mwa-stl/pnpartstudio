@@ -42,7 +42,10 @@ export const VIDEO_MIME = /^video\/(mp4|quicktime|webm|x-matroska|x-msvideo|mpeg
  * visitor bandwidth for detail no layout on the site can show.
  */
 export const processImage = async (buffer, { folder = 'images', originalName = '' } = {}) => {
-  const pipeline = sharp(buffer, { failOn: 'none' })
+  // `animated: true` reads every frame of an animated GIF/WebP rather than
+  // just the first — without it an uploaded GIF silently came out as a
+  // single static WebP frame. Harmless for an ordinary single-frame image.
+  const pipeline = sharp(buffer, { failOn: 'none', animated: true })
     // Strips EXIF as a side effect, which also removes any GPS coordinates
     // baked in by a phone camera.
     .rotate()

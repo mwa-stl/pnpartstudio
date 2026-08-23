@@ -44,10 +44,10 @@ const AdminSidebar = ({ open, onClose }) => {
 
       <aside
         className={`
-          fixed z-50 top-0 left-0 w-[84vw] max-w-[268px] h-full bg-paper border-r border-ink flex flex-col
+          fixed z-50 top-0 left-0 w-[84vw] max-w-[268px] h-dvh bg-paper border-r border-ink flex flex-col
           transition-transform duration-300
           ${open ? "translate-x-0" : "-translate-x-full"}
-          lg:static lg:translate-x-0 lg:w-[248px] lg:shrink-0
+          lg:static lg:translate-x-0 lg:h-full lg:w-[248px] lg:shrink-0
         `}
         role="navigation"
         aria-label="Admin navigation"

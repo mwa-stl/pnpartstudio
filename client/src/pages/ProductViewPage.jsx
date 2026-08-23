@@ -47,6 +47,7 @@ const ProductViewPage = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [descExpanded, setDescExpanded] = useState(false);
+  const [storyExpanded, setStoryExpanded] = useState(false);
   const [added, setAdded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [related, setRelated] = useState([]);
@@ -204,6 +205,9 @@ const ProductViewPage = () => {
 
   const desc = product.description || "";
   const isLong = desc.trim().split(/\s+/).length > 40;
+
+  const story = product.storyBehindArt || "";
+  const isStoryLong = story.trim().split(/\s+/).length > 40;
 
   const whatsappHref = (() => {
     const phone = String(import.meta.env.VITE_WHATSAPP_NUMBER || "").replace(/\D/g, "");
@@ -365,6 +369,27 @@ const ProductViewPage = () => {
                     </div>
                   ))}
                 </dl>
+              )}
+
+              {/* Story behind the art */}
+              {story && (
+                <div className="border-t border-rule pt-9 mb-9">
+                  <h2 className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-slate mb-4">
+                    Story behind the art
+                  </h2>
+                  <p className="text-graphite leading-[1.75] whitespace-pre-line">
+                    {storyExpanded ? story : wordLimitDesc(story, 40)}
+                  </p>
+                  {isStoryLong && (
+                    <button
+                      className="mt-3 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-vermillion hover:text-ink transition-colors"
+                      onClick={() => setStoryExpanded(v => !v)}
+                      type="button"
+                    >
+                      {storyExpanded ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </div>
               )}
 
               {/* Purchase */}

@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { MEGA_MENU } from "../data/shopCategories";
+import { megaMenuOf } from "../data/shopCategories";
+import useCategories from "../hooks/useCategories";
 
 /**
  * The shop menu's contents — one column per main category, every subcategory
@@ -12,6 +13,8 @@ import { MEGA_MENU } from "../data/shopCategories";
  */
 const ShopMegaMenu = ({ onNavigate, tone = "paper" }) => {
   const onInk = tone === "ink";
+  const tree = useCategories();
+  const MEGA_MENU = useMemo(() => megaMenuOf(tree), [tree]);
 
   const head = onInk
     ? "text-paper hover:text-vermillion"

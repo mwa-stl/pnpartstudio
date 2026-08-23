@@ -1,5 +1,5 @@
 // src/controllers/product.controller.js (or wherever your controllers are)
-import { Product, PRODUCT_CONSTANTS } from '../models/Product.js';
+import { Product } from '../models/Product.js';
 
 // Helpers
 function slugify(s = '') {
@@ -18,27 +18,30 @@ function toCapitalWords(str) {
     .replace(/\b(\w)/g, (s) => s.toUpperCase());
 }
 
+/**
+ * The admin form sends a full root-leaf categoryPath (the category tree can
+ * now nest arbitrarily deep); category/subcategory/subsubcategory are
+ * derived from its first 3 segments so every other consumer of those three
+ * fields keeps working unchanged, however deep the chosen path actually
+ * goes. Falls back to reading the three fields directly if no categoryPath
+ * is present (defensive only nothing in this codebase sends that shape
+ * anymore once the admin form is updated).
+ */
+function deriveCategoryFields(b = {}) {
+  if (Array.isArray(b.categoryPath)) {
+    const path = b.categoryPath.map((s) => String(s).trim()).filter(Boolean);
+    return { category: path[0] || '', subcategory: path[1] || '', subsubcategory: path[2] || '', categoryPath: path };
+  }
+  return { category: b.category, subcategory: b.subcategory, subsubcategory: b.subsubcategory, categoryPath: undefined };
+}
+
 function validate(b = {}) {
   const errors = {};
 
-  // Category required
-  if (!b.category || !PRODUCT_CONSTANTS.MAIN_CATEGORIES.includes(b.category))
-    errors.category = 'Invalid category';
-
-  // Subcategory/subsubcategory as needed
-  if (b.category === 'All Products') {
-    if (!b.subcategory || !PRODUCT_CONSTANTS.ALL_PRODUCTS_SUBCATEGORIES.includes(b.subcategory))
-      errors.subcategory = 'Subcategory required for All Products';
-  }
-  if (b.category === 'Indian Products') {
-    if (!b.subcategory || !PRODUCT_CONSTANTS.INDIAN_PRODUCTS_SUBCATEGORIES.includes(b.subcategory))
-      errors.subcategory = 'Subcategory required for Indian Products';
-
-    if (b.subcategory === 'Return gifts') {
-      if (!b.subsubcategory || !PRODUCT_CONSTANTS.RETURN_GIFTS_SUBCATEGORIES.includes(b.subsubcategory))
-        errors.subsubcategory = 'Return gift required';
-    }
-  }
+  // Category/subcategory required categories themselves are admin-managed
+  // (see /api/categories), so this only checks presence, not membership.
+  if (!b.category || !String(b.category).trim()) errors.category = 'Category is required';
+  if (!b.subcategory || !String(b.subcategory).trim()) errors.subcategory = 'Subcategory is required';
 
   if (!b.title || !String(b.title).trim()) errors.title = 'Title is required';
   const price = Number(b.price);
@@ -124,15 +127,17 @@ export async function getProduct(req, res, next) {
 export async function createProduct(req, res, next) {
   try {
     const b = req.body || {};
-    const errs = validate(b);
+    const cat = deriveCategoryFields(b);
+    const errs = validate({ ...b, category: cat.category, subcategory: cat.subcategory });
     if (Object.keys(errs).length) return res.status(400).json({ message: 'Validation failed', details: errs });
 
     const payload = {
       title: String(b.title).trim(),
       slug: slugify(b.title),
-      category: b.category,
-      subcategory: b.subcategory,
-      subsubcategory: b.subsubcategory || '',
+      category: cat.category,
+      subcategory: cat.subcategory,
+      subsubcategory: cat.subsubcategory || '',
+      categoryPath: cat.categoryPath || [],
       price: Number(b.price),
       salePrice:
         b.salePrice !== undefined && b.salePrice !== null && b.salePrice !== ''
@@ -141,6 +146,7 @@ export async function createProduct(req, res, next) {
       stock: Number(b.stock || 0),
       images: normalizeImages(b), // array of strings
       description: b.description || '',
+      storyBehindArt: b.storyBehindArt || '',
       published: !!b.published,
       dimensions: b.dimensions || '',
       color: toCapitalWords(b.color || ''),
@@ -158,20 +164,29 @@ export async function createProduct(req, res, next) {
 export async function updateProduct(req, res, next) {
   try {
     const b = req.body || {};
-    const errs = validate({ ...b, title: b.title || 'x', price: b.price ?? 0 });
-    const filtered = Object.fromEntries(Object.entries(errs).filter(([k]) => b[k] !== undefined));
+    const cat = deriveCategoryFields(b);
+    const catProvided = Array.isArray(b.categoryPath) || b.category !== undefined || b.subcategory !== undefined || b.subsubcategory !== undefined;
+
+    const errs = validate({ ...b, title: b.title || 'x', price: b.price ?? 0, category: cat.category, subcategory: cat.subcategory });
+    const filtered = Object.fromEntries(
+      Object.entries(errs).filter(([k]) => (k === 'category' || k === 'subcategory' ? catProvided : b[k] !== undefined))
+    );
     if (Object.keys(filtered).length) return res.status(400).json({ message: 'Validation failed', details: filtered });
 
     const patch = {
       ...(b.title !== undefined && { title: String(b.title).trim(), slug: slugify(b.title) }),
-      ...(b.category !== undefined && { category: b.category }),
-      ...(b.subcategory !== undefined && { subcategory: b.subcategory }),
-      ...(b.subsubcategory !== undefined && { subsubcategory: b.subsubcategory }),
+      ...(catProvided && {
+        category: cat.category,
+        subcategory: cat.subcategory,
+        subsubcategory: cat.subsubcategory || '',
+      }),
+      ...(Array.isArray(b.categoryPath) && { categoryPath: cat.categoryPath }),
       ...(b.price !== undefined && { price: Number(b.price) }),
       ...(b.salePrice !== undefined && { salePrice: b.salePrice !== null && b.salePrice !== '' ? Number(b.salePrice) : null }),
       ...(b.stock !== undefined && { stock: Number(b.stock || 0) }),
       ...((b.images !== undefined || b.image !== undefined) && { images: normalizeImages(b) }),
       ...(b.description !== undefined && { description: b.description || '' }),
+      ...(b.storyBehindArt !== undefined && { storyBehindArt: b.storyBehindArt || '' }),
       ...(b.published !== undefined && { published: !!b.published }),
       ...(b.dimensions !== undefined && { dimensions: b.dimensions || '' }),
       ...(b.color !== undefined && { color: toCapitalWords(b.color || '') }),

@@ -4,14 +4,11 @@ import { LayoutGrid, Rows3, Search, X, SlidersHorizontal, ArrowUpRight } from "l
 import ProductCard from "../components/ProductCard";
 import Select from "../components/ui/Select";
 import Reveal, { RevealLines } from "../components/motion/Reveal";
+import PageHeroMedia from "../components/PageHeroMedia";
 import { useProducts } from "../hooks/useProducts";
 import usePageHero from "../hooks/usePageHero";
-import { EVERYTHING, MAIN_CATEGORIES, PRODUCT_FILTERS } from "../data/shopCategories";
-
-// Categories come from the shared tree the header's mega menu also reads.
-// EVERYTHING is the unfiltered view: "All Products" is a real category in the
-// database, so using it as the default hid everything under "Indian Products".
-const CATEGORY_TABS = [EVERYTHING, ...MAIN_CATEGORIES];
+import useCategories from "../hooks/useCategories";
+import { EVERYTHING, mainCategoriesOf, productFiltersOf } from "../data/shopCategories";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
@@ -69,6 +66,14 @@ const ShopPage = () => {
   const navigate = useNavigate();
 
   const { items: allItems = [], loading, error } = useProducts();
+
+  // Categories come from the shared tree the header's mega menu also reads.
+  // EVERYTHING is the unfiltered view: "All Products" is a real category in the
+  // database, so using it as the default hid everything under "Indian Products".
+  const categoryTree = useCategories();
+  const MAIN_CATEGORIES = useMemo(() => mainCategoriesOf(categoryTree), [categoryTree]);
+  const PRODUCT_FILTERS = useMemo(() => productFiltersOf(categoryTree), [categoryTree]);
+  const CATEGORY_TABS = useMemo(() => [EVERYTHING, ...MAIN_CATEGORIES], [MAIN_CATEGORIES]);
 
   const [viewMode, setViewMode] = useState("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -261,6 +266,13 @@ const ShopPage = () => {
               <p className="text-graphite max-w-sm leading-relaxed">{hero.intro}</p>
             )}
           </div>
+          {hero.image && (
+            <PageHeroMedia
+              src={hero.image}
+              alt=""
+              className="w-full h-[220px] sm:h-[300px] object-cover border border-ink mt-10"
+            />
+          )}
         </div>
       </div>
 

@@ -1,7 +1,10 @@
 /**
  * The shop's category tree — one source for the mega menu, the shop sidebar,
- * and the URLs that link them. Mirrors PRODUCT_CONSTANTS in the server's
- * Product model.
+ * and the URLs that link them. Categories are now admin-managed (see
+ * /api/categories); `DEFAULT_SHOP_TREE` below is only the instant-paint
+ * fallback `useCategories` starts from before the live tree arrives (and
+ * what stays on screen if the fetch fails), kept in sync with the seed data
+ * in server/src/models/Category.js.
  */
 
 /**
@@ -14,7 +17,7 @@
  */
 export const EVERYTHING = 'Everything';
 
-export const SHOP_TREE = [
+export const DEFAULT_SHOP_TREE = [
   {
     label: 'All Products',
     children: [
@@ -47,19 +50,20 @@ export const SHOP_TREE = [
   },
 ];
 
-export const MAIN_CATEGORIES = SHOP_TREE.map((c) => c.label);
+export const mainCategoriesOf = (tree) => (tree || []).map((c) => c.label);
 
 /** The shape the shop page's sidebar expects: { [category]: subcategories }. */
-export const PRODUCT_FILTERS = Object.fromEntries(
-  SHOP_TREE.map((cat) => [
-    cat.label,
-    cat.children.map((sub) =>
-      sub.children || sub.disabled
-        ? { label: sub.label, disabled: sub.disabled, children: sub.children?.map((c) => c.label) }
-        : sub.label
-    ),
-  ])
-);
+export const productFiltersOf = (tree) =>
+  Object.fromEntries(
+    (tree || []).map((cat) => [
+      cat.label,
+      (cat.children || []).map((sub) =>
+        sub.children || sub.disabled
+          ? { label: sub.label, disabled: sub.disabled, children: sub.children?.map((c) => c.label) }
+          : sub.label
+      ),
+    ])
+  );
 
 /** Builds a /shop link. Omitting `category` links to the whole catalogue. */
 export const shopHref = ({ category, subcategory, subsubcategory } = {}) => {
@@ -75,20 +79,21 @@ export const shopHref = ({ category, subcategory, subsubcategory } = {}) => {
  * Flattened links per main category, for the mega menu — sub-subcategories
  * are folded in under their parent so the menu can show everything at once.
  */
-export const MEGA_MENU = SHOP_TREE.map((cat) => ({
-  label: cat.label,
-  href: shopHref({ category: cat.label }),
-  groups: cat.children.map((sub) => ({
-    label: sub.label,
-    href: shopHref({ category: cat.label, subcategory: sub.label }),
-    disabled: !!sub.disabled,
-    children: (sub.children || []).map((leaf) => ({
-      label: leaf.label,
-      href: shopHref({
-        category: cat.label,
-        subcategory: sub.label,
-        subsubcategory: leaf.label,
-      }),
+export const megaMenuOf = (tree) =>
+  (tree || []).map((cat) => ({
+    label: cat.label,
+    href: shopHref({ category: cat.label }),
+    groups: (cat.children || []).map((sub) => ({
+      label: sub.label,
+      href: shopHref({ category: cat.label, subcategory: sub.label }),
+      disabled: !!sub.disabled,
+      children: (sub.children || []).map((leaf) => ({
+        label: leaf.label,
+        href: shopHref({
+          category: cat.label,
+          subcategory: sub.label,
+          subsubcategory: leaf.label,
+        }),
+      })),
     })),
-  })),
-}));
+  }));

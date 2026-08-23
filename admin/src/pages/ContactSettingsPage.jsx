@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Loader2, Save, RotateCcw, ExternalLink } from 'lucide-react';
+import { RotateCcw, ExternalLink } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { RowEditor } from '../components/ui/RepeatableFields.jsx';
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import FloatingSaveBar from "../components/FloatingSaveBar.jsx";
 
 const API = (import.meta.env.VITE_API_URL ?? '') + '/api/site-settings';
 
@@ -212,12 +213,12 @@ const ContactSettingsPage = () => {
           )}
         </Section>
 
-        <div className="sticky bottom-0 -mx-1 px-1 py-4 bg-paper border-t border-ink flex flex-wrap items-center gap-3">
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : <><Save size={15} /> Save details</>}
-          </button>
-          <span className="text-[0.78rem] text-slate">Changes go live on the storefront immediately.</span>
-        </div>
+        <FloatingSaveBar
+          saving={saving}
+          disabled={saving}
+          label="Save details"
+          helperText="Changes go live on the storefront immediately."
+        />
       </form>
     </div>
   );

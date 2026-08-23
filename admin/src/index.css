@@ -36,11 +36,29 @@
 }
 
 @layer base {
+  /*
+   * The console is a fixed app shell (sidebar pinned, only the page content
+   * scrolls) — that only works if the OUTER document can never scroll too.
+   * Without an explicit height/overflow here, any sub-pixel rounding (or a
+   * page whose content is a hair taller than the viewport) makes `html`/
+   * `body` grow past 100vh and pick up their own scrollbar alongside the
+   * app's internal one — the "double scrollbar" bug.
+   */
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
   html, body {
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+  }
+  /* Most browsers' UA stylesheet gives `<button>` the arrow cursor, not the
+     hand — `cursor: pointer` is something a site has to add itself. */
+  button:not(:disabled) {
+    cursor: pointer;
   }
   h1, h2, h3 { font-family: var(--font-display); font-weight: 500; color: var(--color-ink); }
   ::selection { background: var(--color-vermillion); color: #fff; }

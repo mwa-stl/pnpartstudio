@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 
 /**
@@ -49,7 +50,7 @@ const Select = ({
 
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [dropUp, setDropUp] = useState(false);
+  const [coords, setCoords] = useState(null); // { top, left, width, dropUp } — viewport-fixed, computed at open time
 
   const rootRef = useRef(null);
   const buttonRef = useRef(null);
@@ -65,14 +66,28 @@ const Select = ({
     if (refocus) buttonRef.current?.focus();
   }, []);
 
-  /* Decide which way the panel opens before it paints, so it never hangs off
-     the bottom of a modal or a short viewport. */
+  /*
+   * The option list renders through a portal to document.body (see the
+   * return below), positioned with `position: fixed` from the trigger
+   * button's own viewport rect rather than flowing in normal layout. A
+   * plain `position: absolute` panel nested inside a table cell (or any
+   * `overflow`/transformed ancestor) can get clipped or land in the wrong
+   * place depending on the browser's table layout quirks — a portal
+   * sidesteps that entire class of bug by never living inside that
+   * ancestor's DOM subtree at all.
+   */
   const openList = useCallback(() => {
     if (disabled) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
       const below = window.innerHeight - rect.bottom;
-      setDropUp(below < 260 && rect.top > below);
+      const dropUp = below < 260 && rect.top > below;
+      setCoords({
+        top: dropUp ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        dropUp,
+      });
     }
     setActiveIndex(selectedIndex >= 0 ? selectedIndex : items.findIndex((o) => !o.disabled));
     setOpen(true);
@@ -81,16 +96,30 @@ const Select = ({
   useEffect(() => {
     if (!open) return undefined;
     const onPointerDown = (e) => {
-      if (!rootRef.current?.contains(e.target)) close(false);
+      if (!rootRef.current?.contains(e.target) && !listRef.current?.contains(e.target)) close(false);
     };
     const onWindowChange = () => close(false);
+    // A scroll of the option list itself (its own `overflow-y-auto`, fired
+    // e.g. by the scroll-active-option-into-view effect below the instant
+    // the list opens) must not count as "the page scrolled out from under
+    // the panel" — that would close the list the moment it opens, before a
+    // click can ever land.
+    const onWindowScroll = (e) => {
+      if (listRef.current && (e.target === listRef.current || listRef.current.contains(e.target))) return;
+      close(false);
+    };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown);
     window.addEventListener("resize", onWindowChange);
+    // Capture phase so a scroll on any nested scrollable ancestor (a table's
+    // horizontal scroller, a modal body, etc.) is caught too — scroll events
+    // don't bubble, but they do fire during capture.
+    window.addEventListener("scroll", onWindowScroll, true);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("touchstart", onPointerDown);
       window.removeEventListener("resize", onWindowChange);
+      window.removeEventListener("scroll", onWindowScroll, true);
     };
   }, [open, close]);
 
@@ -213,16 +242,20 @@ const Select = ({
         />
       </button>
 
-      {open && (
+      {open && coords && createPortal(
         <ul
           ref={listRef}
           id={listId}
           role="listbox"
           aria-label={ariaLabel || "Options"}
           tabIndex={-1}
-          className={`absolute left-0 right-0 z-[130] max-h-64 overflow-y-auto bg-surface border border-ink shadow-[0_16px_40px_-24px_rgba(11,11,11,0.55)] ${
-            dropUp ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
+          className="fixed z-[130] max-h-64 overflow-y-auto bg-surface border border-ink shadow-[0_16px_40px_-24px_rgba(11,11,11,0.55)]"
+          style={{
+            top: coords.top,
+            left: coords.left,
+            width: coords.width,
+            transform: coords.dropUp ? "translateY(-100%)" : "none",
+          }}
         >
           {items.length === 0 && (
             <li className="px-3 py-3 font-mono text-[0.6rem] uppercase tracking-[0.12em] text-slate">
@@ -279,7 +312,8 @@ const Select = ({
               </React.Fragment>
             );
           })}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

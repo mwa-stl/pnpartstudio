@@ -26,6 +26,7 @@ export const mapProductFromApi = (doc = {}) => {
     published: !!doc.published,
     featured: !!doc.featured,
     description: doc.description || "",
+    storyBehindArt: doc.storyBehindArt || "",
     dimensions: doc.dimensions || "",
     color: doc.color || "",
     image,

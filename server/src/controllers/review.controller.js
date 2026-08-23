@@ -2,13 +2,19 @@ import mongoose from 'mongoose';
 import Review from '../models/Review.js';
 import { Product } from '../models/Product.js';
 import { deleteObject, objectPathFromUrl } from '../services/storage.js';
+import { generateInitialsAvatar } from '../lib/avatar.js';
 
 /** How many photos one review may carry. */
 const MAX_PHOTOS = 4;
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '');
 
-/** Strips the reviewer's email — it must never reach the storefront. */
+/**
+ * Strips the reviewer's email — it must never reach the storefront — but
+ * still uses it to seed a deterministic avatar first. Reviewers never
+ * upload a photo of themselves (see Review.js), so this always runs, not
+ * just as a fallback for a missing upload.
+ */
 const publicShape = (doc) => ({
   _id: doc._id,
   product: doc.product,
@@ -17,6 +23,7 @@ const publicShape = (doc) => ({
   title: doc.title,
   body: doc.body,
   photos: Array.isArray(doc.photos) ? doc.photos : [],
+  avatarUrl: generateInitialsAvatar(doc.email || doc.name),
   createdAt: doc.createdAt,
 });
 
@@ -158,7 +165,7 @@ export const listAllReviews = async (req, res) => {
       .populate('product', 'title images category subcategory')
       .lean();
 
-    res.json({ items });
+    res.json({ items: items.map((d) => ({ ...d, avatarUrl: generateInitialsAvatar(d.email || d.name) })) });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Server error' });
   }

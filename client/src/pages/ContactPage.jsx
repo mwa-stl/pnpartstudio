@@ -5,6 +5,7 @@ import axios from 'axios';
 import Reveal, { RevealLines } from '../components/motion/Reveal';
 import ParallaxLayer from '../components/motion/ParallaxLayer';
 import Select from '../components/ui/Select';
+import PageHeroMedia from '../components/PageHeroMedia';
 import usePageHero from '../hooks/usePageHero';
 import useSiteSettings from '../hooks/useSiteSettings';
 import { formatAddress } from '../data/siteSettings';
@@ -147,6 +148,13 @@ const ContactPage = () => {
               </dl>
             </Reveal>
           </div>
+          {hero.image && (
+            <PageHeroMedia
+              src={hero.image}
+              alt=""
+              className="w-full h-[220px] sm:h-[300px] object-cover border border-ink mt-10"
+            />
+          )}
         </div>
       </div>
 

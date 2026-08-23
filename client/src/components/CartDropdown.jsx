@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { X, Plus, Minus, ArrowUpRight } from "lucide-react";
@@ -66,7 +67,16 @@ const CartDropdown = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isOpen]);
 
-  return (
+  /*
+   * Portaled straight to <body> instead of rendering inside <Header>. A
+   * `position: fixed` descendant is only fixed to the viewport as long as no
+   * ancestor sets a transform/filter/perspective (Framer Motion elements can
+   * apply these mid-animation) — if one does, "fixed" quietly becomes fixed
+   * to THAT ancestor's box instead, which is exactly what made this panel
+   * look like it never fully opened. Rendering outside the header's subtree
+   * removes the possibility entirely.
+   */
+  return createPortal(
     <AnimatePresence>
       {state.isOpen && (
         <>
@@ -106,8 +116,10 @@ const CartDropdown = () => {
               </button>
             </div>
 
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Body. `data-lenis-prevent` for the same reason as the mobile
+                nav — Lenis owns document scrolling and would otherwise
+                swallow this list's own native scroll. */}
+            <div className="flex-1 overflow-y-auto overscroll-contain" data-lenis-prevent>
               {state.items.length === 0 ? (
                 <div className="text-center py-24 px-6 flex flex-col items-center">
                   <span className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-slate mb-6">Empty</span>
@@ -221,7 +233,8 @@ const CartDropdown = () => {
           </motion.aside>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

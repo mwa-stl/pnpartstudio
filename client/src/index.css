@@ -42,6 +42,11 @@
     scroll-behavior: auto;            /* Lenis owns smooth scrolling */
     background-color: var(--color-paper);
   }
+  /* Most browsers' UA stylesheet gives `<button>` the arrow cursor, not the
+     hand — `cursor: pointer` is something a site has to add itself. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
   body {
     background-color: var(--color-paper);
     color: var(--color-ink);

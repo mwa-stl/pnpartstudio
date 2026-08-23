@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { ShoppingCart, Heart, Menu, X, ArrowUpRight, Plus } from "lucide-react";
@@ -98,6 +99,7 @@ const Header = () => {
   const badge = "absolute -top-0.5 -right-0.5 bg-vermillion text-white font-mono text-[0.55rem] font-semibold w-[17px] h-[17px] flex items-center justify-center";
 
   return (
+    <>
     <header
       className={`w-full fixed z-40 top-0 left-0 border-b transition-colors duration-500 ${
         scrolled ? "bg-ink border-ink" : "bg-paper/92 backdrop-blur-md border-rule"
@@ -106,21 +108,23 @@ const Header = () => {
       <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8" style={{ height: 84 }}>
 
         {/* Wordmark */}
-        <Link to="/" aria-label="PnP Artstudio home" className="flex items-center gap-3 shrink-0 group">
+        <Link to="/" aria-label="PnP Artstudio home" className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0 group">
           <img
             src={scrolled ? logoWhite : logoBlack}
             alt=""
-            className="h-9 sm:h-10 w-auto transition-opacity duration-300"
+            className="h-8 sm:h-10 w-auto shrink-0 transition-opacity duration-300"
             width={60} height={40}
           />
-          <span className="hidden sm:block leading-none">
+          <span className="block leading-none min-w-0">
             <span
-              className={`block transition-colors duration-500 ${scrolled ? "text-paper" : "text-ink"}`}
-              style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 500, fontSize: "1.4rem", letterSpacing: "-0.02em" }}
+              className={`block truncate transition-colors duration-500 text-[1.05rem] sm:text-[1.4rem] ${scrolled ? "text-paper" : "text-ink"}`}
+              style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 500, letterSpacing: "-0.02em" }}
             >
               PnP Artstudio
             </span>
-            <span className={`block font-mono text-[0.54rem] uppercase tracking-[0.22em] mt-1 transition-colors duration-500 ${scrolled ? "text-paper/45" : "text-slate"}`}>
+            {/* The strapline is the first thing to go when space is tight —
+                the name itself now stays visible at every width. */}
+            <span className={`hidden sm:block font-mono text-[0.54rem] uppercase tracking-[0.22em] mt-1 transition-colors duration-500 ${scrolled ? "text-paper/45" : "text-slate"}`}>
               Priyanka Vasista Est. Missouri
             </span>
           </span>
@@ -247,7 +251,19 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile: full-bleed ink takeover */}
+    </header>
+
+    {/*
+      Portaled straight to <body>, not rendered inside <header>. A
+      `position: fixed` descendant is only fixed to the viewport as long as
+      no ancestor sets a transform/filter/perspective — header's own
+      `backdrop-blur-md` and the surrounding motion elements can trigger
+      that in some browsers, which silently turns "fixed to the viewport"
+      into "fixed to the header's own 84px box" and made this takeover look
+      like it never fully opened. Rendering outside that subtree removes
+      the possibility entirely.
+    */}
+    {createPortal(
       <AnimatePresence>
         {menuOpen && (
           <motion.nav
@@ -255,11 +271,25 @@ const Header = () => {
             animate={{ clipPath: "inset(0 0 0% 0)" }}
             exit={{ clipPath: "inset(0 0 100% 0)" }}
             transition={{ duration: 0.55, ease: EASE }}
-            className="lg:hidden fixed inset-0 z-50 bg-ink on-ink flex flex-col overflow-y-auto"
+            /* `data-lenis-prevent`: Lenis runs with smoothWheel/touch on the
+               whole document and drives window scroll itself, swallowing the
+               native scroll of any nested container. Without this the menu's
+               own list could not be scrolled at all, so on a short screen the
+               links past the fold were simply unreachable. */
+            data-lenis-prevent
+            className="lg:hidden fixed inset-0 z-50 bg-ink on-ink flex flex-col overflow-y-auto overscroll-contain"
             aria-label="Mobile navigation"
           >
             <div className="flex items-center justify-between px-5 border-b border-paper/15 shrink-0" style={{ height: 84 }}>
-              <span className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-paper/50">Menu</span>
+              <span className="flex items-center gap-2.5 leading-none">
+                <img src={logoWhite} alt="" className="h-7 w-auto" width={42} height={28} />
+                <span
+                  className="text-paper"
+                  style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontWeight: 500, fontSize: "1.1rem", letterSpacing: "-0.02em" }}
+                >
+                  PnP Artstudio
+                </span>
+              </span>
               <button className="text-paper p-2" onClick={() => setMenuOpen(false)} aria-label="Close menu">
                 <X size={22} strokeWidth={1.6} />
               </button>
@@ -346,8 +376,10 @@ const Header = () => {
             </div>
           </motion.nav>
         )}
-      </AnimatePresence>
-    </header>
+      </AnimatePresence>,
+      document.body
+    )}
+    </>
   );
 };
 

@@ -1,16 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Edit2, Trash2, Image as ImageIcon, Plus, Maximize2, X,
   ChevronLeft, ChevronRight, Droplets, Save, Loader2, RefreshCw, Search, Package
 } from "lucide-react";
 import axios from "axios";
 import Select from "../components/ui/Select.jsx";
+import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 import ConfirmDialog from "../components/ui/ConfirmDialog.jsx";
 import useConfirm from "../hooks/useConfirm.js";
 import { toast } from "react-toastify";
 import { applyWatermark, uploadWatermarked, urlToFile } from "../utils/watermark.js";
 import { WatermarkPositionModal } from "../components/WatermarkModal.jsx";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
+import { getCategories } from "../api/categories.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const PRODUCTS_URL = `${API_BASE}/api/products`;
@@ -18,20 +20,9 @@ axios.defaults.withCredentials = true;
 
 const fmtUSD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
-const PRODUCT_CATEGORIES = {
-  "All Products": [
-    "Paintings", "Holiday gifts", "Landscapes", "Modern art", "Name sign", "Limited editions",
-    "Pencil sketches", { label: "Digital prints", disabled: true }
-  ],
-  "Indian Products": [
-    "Indian god paintings", "Musical Art paintings",
-    { label: "Return gifts", children: ["Kolam coasters", "Kolam peetham", "Traditional magnets", "Trays", "Diya holders"] }
-  ]
-};
-
 const EMPTY_PRODUCT = {
-  id: "", title: "", category: "", subcategory: "", subsubcategory: "", price: "", salePrice: "", stock: 1,
-  images: [], description: "", published: true, dimensions: "", color: "",
+  id: "", title: "", category: "", subcategory: "", subsubcategory: "", categoryPath: [], price: "", salePrice: "", stock: 1,
+  images: [], description: "", storyBehindArt: "", published: true, dimensions: "", color: "",
   inStock: true, featured: false, donated: false, contactForPrice: false
 };
 
@@ -41,9 +32,16 @@ const mapProductFromApi = (doc) => {
   const images = Array.isArray(doc?.images) ? doc.images.filter(Boolean) : [];
   return {
     id: doc._id, title: doc.title || "", category: doc.category || "", subcategory: doc.subcategory || "",
-    subsubcategory: doc.subsubcategory || "", price: typeof doc.price === "number" ? doc.price : "",
+    subsubcategory: doc.subsubcategory || "",
+    // Full picker path older products predate this field, so fall back to
+    // reconstructing it from the three legacy fields they do have.
+    categoryPath: Array.isArray(doc.categoryPath) && doc.categoryPath.length
+      ? doc.categoryPath.map(String)
+      : [doc.category, doc.subcategory, doc.subsubcategory].filter(Boolean),
+    price: typeof doc.price === "number" ? doc.price : "",
     salePrice: doc.salePrice === null ? null : (typeof doc.salePrice === "number" ? doc.salePrice : null),
     stock: typeof doc.stock === "number" ? doc.stock : 0, images, description: doc.description || "",
+    storyBehindArt: doc.storyBehindArt || "",
     published: !!doc.published, slug: doc.slug || "", dimensions: doc.dimensions || "",
     color: toCapitalWords(doc.color || ""),
     inStock: typeof doc?.inStock === "boolean" ? doc.inStock : (typeof doc?.stock === "number" ? doc.stock > 0 : true),
@@ -59,6 +57,7 @@ const IMG_FALLBACK = "data:image/svg+xml;utf8," + encodeURIComponent(
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
+  const [categoryTree, setCategoryTree] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState("");
@@ -67,7 +66,6 @@ export default function ProductsPage() {
   const [uploadingImgs, setUploadingImgs] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState("");
-  const fileInputRef = useRef(null);
 
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(null);
@@ -91,6 +89,50 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    getCategories().then(setCategoryTree).catch(() => toast.error("Failed to load categories"));
+  }, []);
+
+  /**
+   * One cascading Select per depth of the category tree the product's path
+   * actually reaches — the tree can nest arbitrarily deep now, so this walks
+   * `categoryTree` following `form.categoryPath` instead of assuming a fixed
+   * 3 levels. Stops once the chosen node has no children (a leaf) or once a
+   * level is reached that hasn't been answered yet.
+   *
+   * If a stored path segment no longer matches any live node (renamed or
+   * deleted since the product was saved), it's injected as an extra option
+   * so the Select shows the real stored value instead of a blank placeholder.
+   */
+  const pickerLevels = useMemo(() => {
+    const levels = [];
+    let nodes = categoryTree;
+    const path = form.categoryPath || [];
+    for (let depth = 0; depth < 12; depth += 1) {
+      const chosen = path[depth] || "";
+      const parentName = depth > 0 ? path[depth - 1] : "";
+      const label = depth === 0 ? "Category" : depth === 1 ? "Subcategory" : `${parentName} type`;
+
+      if (!Array.isArray(nodes) || nodes.length === 0) {
+        if (!chosen) break; // nothing live and nothing stored either done
+        levels.push({ depth, label, options: [{ value: chosen, label: chosen }] });
+        break; // an orphaned leaf has no known children to drill into
+      }
+
+      const options = nodes.map(n => ({ value: n.name, label: n.name, disabled: !!n.disabled, hint: n.disabled ? "Coming soon" : "" }));
+      const match = nodes.find(n => n.name === chosen);
+      if (chosen && !match) options.push({ value: chosen, label: chosen });
+      levels.push({ depth, label, options });
+
+      if (!chosen) break;
+      nodes = match?.children || [];
+    }
+    return levels;
+  }, [categoryTree, form.categoryPath]);
+
+  const setCategoryPathAt = (depth, value) =>
+    setForm(f => ({ ...f, categoryPath: [...(f.categoryPath || []).slice(0, depth), value] }));
 
   // Lightbox controls, declared above the effect that calls them so the
   // reference is never to a `const` that has not run yet.
@@ -143,7 +185,6 @@ export default function ProductsPage() {
       toast.error(e.message || "Image upload failed");
     } finally {
       setUploadingImgs(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -151,7 +192,6 @@ export default function ProductsPage() {
     setShowWmModal(false);
     setPendingFiles(null);
     setRewmMode(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleRewatermarkClick = async () => {
@@ -176,7 +216,6 @@ export default function ProductsPage() {
     setForm(EMPTY_PRODUCT);
     setEditingId("");
     setShowForm(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
   // Escape closes the product dialog, as it does everywhere else here.
@@ -195,21 +234,22 @@ export default function ProductsPage() {
     e?.preventDefault?.();
     if (!form.title.trim()) return toast.warning("Product title is required");
     if (!form.donated && !form.contactForPrice && (!form.price || Number(form.price) <= 0)) return toast.warning("A valid price is required");
-    if (!form.category) return toast.warning("Select a category");
-    if (!form.subcategory) return toast.warning("Select a subcategory");
-    if (form.subcategory === "Return gifts" && !form.subsubcategory) return toast.warning("Select a return gift type");
+    if (!form.categoryPath?.[0]) return toast.warning("Select a category");
+    const lastLevel = pickerLevels[pickerLevels.length - 1];
+    if (lastLevel && lastLevel.options.length > 0 && !form.categoryPath[lastLevel.depth]) {
+      return toast.warning(`Select a ${lastLevel.label.toLowerCase()}`);
+    }
     if (!form.donated && !form.contactForPrice && form.salePrice !== "" && form.salePrice !== null && Number(form.salePrice) > Number(form.price)) {
       return toast.warning("Sale price cannot exceed the regular price");
     }
     try {
       setSaving(true);
       const payload = {
-        title: form.title, category: form.category, subcategory: form.subcategory,
-        subsubcategory: form.subsubcategory ? form.subsubcategory : undefined,
+        title: form.title, categoryPath: form.categoryPath.filter(Boolean),
         price: (form.donated || form.contactForPrice) ? 0 : Number(form.price),
         salePrice: (form.donated || form.contactForPrice) ? null : (form.salePrice !== "" && form.salePrice !== null ? Number(form.salePrice) : null),
         stock: Number(form.stock || 0), images: Array.isArray(form.images) ? form.images.map(String) : [],
-        description: form.description || "", published: !!form.published,
+        description: form.description || "", storyBehindArt: form.storyBehindArt || "", published: !!form.published,
         dimensions: form.dimensions || "", color: toCapitalWords(form.color),
         inStock: !!form.inStock, featured: !!form.featured, donated: !!form.donated,
         contactForPrice: !!form.contactForPrice
@@ -282,11 +322,6 @@ export default function ProductsPage() {
 
   const handleImgError = (e) => { e.currentTarget.onerror = null; e.currentTarget.src = IMG_FALLBACK; };
 
-
-  const subcategories = PRODUCT_CATEGORIES[form.category] || [];
-  const selectedSub = subcategories.find(s => typeof s === "object" && s.label === form.subcategory);
-  const subsubOptions = selectedSub?.children || [];
-
   const visible = query.trim()
     ? products.filter(p => [p.title, p.category, p.subcategory, p.subsubcategory, p.color]
         .some(v => v && String(v).toLowerCase().includes(query.trim().toLowerCase())))
@@ -354,45 +389,20 @@ export default function ProductsPage() {
                 onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} required />
             </div>
 
-            <div>
-              <label htmlFor="p-cat" className="label">Category <span className="text-vermillion">*</span></label>
-              <Select
-                id="p-cat"
-                value={form.category}
-                placeholder="Select a category"
-                onChange={(v) => setForm(f => ({ ...f, category: v, subcategory: "", subsubcategory: "" }))}
-                options={Object.keys(PRODUCT_CATEGORIES)}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="p-sub" className="label">Subcategory <span className="text-vermillion">*</span></label>
-              <Select
-                id="p-sub"
-                value={form.subcategory}
-                disabled={!form.category}
-                placeholder={form.category ? "Select a subcategory" : "Pick a category first"}
-                onChange={(v) => setForm(f => ({ ...f, subcategory: v, subsubcategory: "" }))}
-                options={subcategories.map(s => {
-                  const label = typeof s === "string" ? s : s.label;
-                  const disabled = typeof s === "object" && !!s.disabled;
-                  return { value: label, label, disabled, hint: disabled ? "Coming soon" : "" };
-                })}
-              />
-            </div>
-
-            {subsubOptions.length > 0 && (
-              <div>
-                <label htmlFor="p-subsub" className="label">{form.subcategory} type <span className="text-vermillion">*</span></label>
+            {pickerLevels.map((level) => (
+              <div key={level.depth}>
+                <label htmlFor={`p-cat-${level.depth}`} className="label">
+                  {level.label} <span className="text-vermillion">*</span>
+                </label>
                 <Select
-                  id="p-subsub"
-                  value={form.subsubcategory}
-                  placeholder="Select a type"
-                  onChange={(v) => setForm(f => ({ ...f, subsubcategory: v }))}
-                  options={subsubOptions}
+                  id={`p-cat-${level.depth}`}
+                  value={form.categoryPath[level.depth] || ""}
+                  placeholder={`Select a ${level.label.toLowerCase()}`}
+                  onChange={(v) => setCategoryPathAt(level.depth, v)}
+                  options={level.options}
                 />
               </div>
-            )}
+            ))}
 
             <div>
               <label htmlFor="p-price" className="label">Price (USD) {!noPrice && <span className="text-vermillion">*</span>}</label>
@@ -428,6 +438,13 @@ export default function ProductsPage() {
                 onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
+            <div className="col-span-full">
+              <label htmlFor="p-story" className="label">Story behind the art</label>
+              <textarea id="p-story" className="field resize-y" rows={4} value={form.storyBehindArt}
+                placeholder="Share the inspiration, technique, or meaning behind this piece"
+                onChange={(e) => setForm(f => ({ ...f, storyBehindArt: e.target.value }))} />
+            </div>
+
             {/* Flags */}
             <div className="col-span-full flex flex-wrap gap-x-6 gap-y-3 py-1">
               {[
@@ -451,21 +468,20 @@ export default function ProductsPage() {
 
             {/* Images */}
             <div className="col-span-full">
-              <span className="label">Images watermarked on upload</span>
-              <div className="flex items-center gap-2 flex-wrap mb-3">
-                <label className="btn btn-ghost cursor-pointer">
-                  <input ref={fileInputRef} type="file" accept="image/*" multiple className="sr-only"
-                    onChange={(e) => handleFiles(e.target.files)} disabled={uploadingImgs} />
-                  {uploadingImgs ? <Loader2 size={15} className="animate-spin" /> : <ImageIcon size={15} />}
-                  {uploadingImgs ? "Uploading…" : "Add images"}
-                </label>
-                {form.images?.length > 0 && (
-                  <button type="button" className="btn btn-ghost" onClick={handleRewatermarkClick} disabled={rewmLoading || uploadingImgs}>
-                    {rewmLoading ? <Loader2 size={15} className="animate-spin" /> : <Droplets size={15} />}
-                    Re-watermark all
-                  </button>
-                )}
-              </div>
+              <ImageDropzone
+                id="p-images"
+                label="Images watermarked on upload"
+                size="wide"
+                multiple
+                uploading={uploadingImgs}
+                onFiles={(files) => handleFiles(files)}
+              />
+              {form.images?.length > 0 && (
+                <button type="button" className="btn btn-ghost mt-3" onClick={handleRewatermarkClick} disabled={rewmLoading || uploadingImgs}>
+                  {rewmLoading ? <Loader2 size={15} className="animate-spin" /> : <Droplets size={15} />}
+                  Re-watermark all
+                </button>
+              )}
 
               {form.images?.length > 0 && (
                 <div className="flex gap-2.5 flex-wrap">

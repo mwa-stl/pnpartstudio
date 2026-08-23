@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { Menu } from "lucide-react";
+import { Menu, ArrowLeft } from "lucide-react";
 import AdminSidebar from "../components/AdminSidebar.jsx";
 import { metaFor } from "../data/adminNav.js";
 import "react-toastify/dist/ReactToastify.css";
@@ -9,16 +9,20 @@ import "react-toastify/dist/ReactToastify.css";
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { n: index, label: title } = metaFor(pathname);
 
   return (
     /* `w-full`, never `w-screen`: 100vw includes the vertical scrollbar, so the
          shell ended up ~15px wider than the viewport and the whole console
-         scrolled sideways. */
-      <div className="h-screen min-h-0 w-full bg-paper text-ink flex overflow-hidden">
+         scrolled sideways. `h-dvh`, not `h-screen` (100vh): on mobile, 100vh
+         includes the area the browser's address bar can cover, so the shell
+         was taller than what's actually visible — `dvh` tracks the real
+         visible viewport as the browser chrome shows/hides. */
+      <div className="h-dvh min-h-0 w-full bg-paper text-ink flex overflow-hidden">
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-h-0 h-screen min-w-0">
+      <div className="flex-1 flex flex-col min-h-0 h-dvh min-w-0">
         {/* Topbar */}
         <header className="sticky top-0 z-20 w-full h-16 bg-paper border-b border-ink flex items-center px-4 sm:px-6 shrink-0 gap-4">
           <button
@@ -27,6 +31,15 @@ const AdminLayout = () => {
             aria-label="Open navigation"
           >
             <Menu size={18} strokeWidth={1.7} />
+          </button>
+
+          <button
+            className="p-2 border border-rule-strong hover:bg-ink hover:text-paper hover:border-ink transition-colors shrink-0"
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+            title="Go back"
+          >
+            <ArrowLeft size={16} strokeWidth={1.8} />
           </button>
 
           <div className="flex items-baseline gap-3.5 min-w-0">
