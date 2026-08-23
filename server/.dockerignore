@@ -1,0 +1,34 @@
+# Never let the host's node_modules into the image. Beyond bloating it, the
+# native binaries in sharp / ffmpeg-static are built for the *host* platform
+# (Windows or macOS here) and would overwrite the correct Linux ones that
+# `npm ci --omit=dev` just installed — the classic "works on my machine,
+# crashes in the container" failure.
+node_modules/
+npm-debug.log*
+
+# Secrets must come from Cloud Run's environment/Secret Manager, never be
+# baked into an image layer (anyone who can pull the image can read them).
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+gcp-*.json
+service-account*.json
+
+# Not needed at runtime
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+*.md
+logs/
+*.log
+tmp/
+.cache/
+coverage/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
