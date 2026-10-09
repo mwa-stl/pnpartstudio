@@ -89,10 +89,12 @@ const HeroCarousel = ({
       aria-label="Featured artwork"
     >
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full">
-        <div className="h-full grid grid-rows-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-1 lg:grid-cols-[1fr_1.05fr] gap-5 lg:gap-14 items-center py-5 lg:py-10">
+        {/* Auto rows below lg so neither column can be squeezed; the fixed
+            viewport split only kicks in on lg, where there is room for it. */}
+        <div className="h-full grid grid-cols-1 lg:grid-rows-1 lg:grid-cols-[1fr_1.05fr] gap-6 lg:gap-14 items-center py-6 lg:py-10">
 
           {/* Type column */}
-          <div className="order-2 lg:order-1 min-h-0 flex flex-col justify-center overflow-hidden">
+          <div className="order-2 lg:order-1 min-w-0 lg:min-h-0 flex flex-col justify-center lg:overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`c-${currentSlide._id || index}`}
@@ -195,8 +197,10 @@ const HeroCarousel = ({
             )}
           </div>
 
-          {/* Image column offset frame, hairline outline behind */}
-          <div className="order-1 lg:order-2 relative h-full min-h-0">
+          {/* Image column offset frame, hairline outline behind.
+              Needs an explicit height below lg: the row is auto-sized there,
+              so `h-full` alone would collapse to nothing. */}
+          <div className="order-1 lg:order-2 relative h-[46vh] min-h-[260px] max-h-[440px] lg:h-full lg:min-h-0 lg:max-h-none">
             <div className="absolute -inset-3 sm:-inset-5 border border-rule pointer-events-none hidden sm:block" aria-hidden="true" />
             <div className="relative overflow-hidden bg-paper-deep h-full w-full">
               <AnimatePresence initial={false}>

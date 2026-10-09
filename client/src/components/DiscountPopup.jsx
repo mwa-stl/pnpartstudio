@@ -110,23 +110,32 @@ const DiscountPopup = () => {
       className="fixed inset-0 bg-ink/60 z-[10000] flex items-end sm:items-center justify-center p-4"
       onClick={closeForNow}
     >
+      {/* Scrollable on short screens, and `data-lenis-prevent` so Lenis does
+          not swallow that scroll the way it did the mobile menu. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="discountTitle"
-        className="relative w-full max-w-3xl bg-paper border border-ink grid grid-cols-1 sm:grid-cols-[0.8fr_1fr] overflow-hidden"
+        data-lenis-prevent
+        className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto overscroll-contain bg-paper border border-ink grid grid-cols-1 sm:grid-cols-[0.8fr_1fr]"
         onClick={e => e.stopPropagation()}
       >
-        {/* Plate */}
-        <div className="relative hidden sm:block border-r border-ink bg-paper-deep">
-          <img src={image} alt="" className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
+        {/* Plate — a tall panel beside the copy on sm+, a proper banner above
+            it on mobile. It was a 96px-high strip before, which cropped the
+            artwork down to an unreadable sliver. */}
+        <div className="relative border-b sm:border-b-0 sm:border-r border-ink bg-paper-deep h-44 sm:h-auto shrink-0">
+          <img
+            src={image}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            aria-hidden="true"
+          />
           {config.imageBadge && (
             <span className="absolute bottom-0 left-0 bg-ink text-paper px-3 py-2 font-mono text-[0.55rem] uppercase tracking-[0.16em]">
               {config.imageBadge}
             </span>
           )}
         </div>
-        <div className="sm:hidden h-24 w-full bg-cover bg-center border-b border-ink" style={{ backgroundImage: `url(${image})` }} aria-hidden="true" />
 
         {/* Panel */}
         <div className="relative flex flex-col justify-center px-6 sm:px-9 py-9">

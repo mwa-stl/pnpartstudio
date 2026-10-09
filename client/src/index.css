@@ -55,6 +55,22 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+  /*
+   * Kills the sliver of dead space to the right of the page on narrow
+   * screens: one wide animated/marquee child overhanging the viewport makes
+   * the document horizontally scrollable, and the whole page then sits
+   * slightly narrower than the screen.
+   *
+   * `clip`, deliberately not `hidden`: `overflow-x: hidden` on html/body
+   * silently turns the document into a scroll container, which breaks every
+   * `position: sticky` element on the site (the shop filter bar, the cart
+   * summary, the checkout sidebar). `clip` trims the overhang without
+   * creating that scroll container.
+   */
+  html, body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     color: var(--color-ink);
@@ -391,16 +407,29 @@
    slide change, which reads as the page scrolling by itself.
    `svh` is deliberate: `vh`/`dvh` change as mobile browser chrome hides,
    which would reintroduce the same jump. */
+/*
+ * Below lg the hero is content-height, not viewport-height. Pinning it to
+ * the viewport and splitting it into two equal rows left the type column
+ * with roughly half a short phone screen for an eyebrow, a display-size
+ * headline, a paragraph, two buttons and the carousel controls. The excess
+ * was clipped and, because the column centres its content, it spilled
+ * upwards behind the image — the red eyebrow disappearing under the
+ * artwork. Letting the section grow on small screens removes the collision
+ * at its source rather than shrinking the type to fit.
+ */
 .hero-shell {
-  height: calc(100vh - 84px);
-  height: calc(100svh - 84px);
-  max-height: calc(100svh - 84px);
-  min-height: 560px;
+  height: auto;
+  min-height: 0;
 }
-@media (max-width: 1023px) {
-  .hero-shell { min-height: 480px; }
+@media (min-width: 1024px) {
+  .hero-shell {
+    height: calc(100vh - 84px);
+    height: calc(100svh - 84px);
+    max-height: calc(100svh - 84px);
+    min-height: 560px;
+  }
 }
-@media (max-height: 640px) {
+@media (min-width: 1024px) and (max-height: 640px) {
   .hero-shell { min-height: 0; }
 }
 
