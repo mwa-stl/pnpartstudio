@@ -159,7 +159,7 @@ export async function updateClass(req, res, next) {
     const doc = await ClassModel.findByIdAndUpdate(
       req.params.id,
       update,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!doc) return res.status(404).json({ message: 'Class not found' });

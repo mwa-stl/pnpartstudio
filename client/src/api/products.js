@@ -34,6 +34,8 @@ export const mapProductFromApi = (doc = {}) => {
     slug: doc.slug || "",
     donated: !!doc.donated,
     contactForPrice: !!doc.contactForPrice,
+    // Set by the server while a live announcement is discounting this product.
+    sale: doc.sale || null,
   };
 };
 

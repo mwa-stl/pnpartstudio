@@ -1,5 +1,14 @@
 // src/controllers/product.controller.js (or wherever your controllers are)
 import { Product } from '../models/Product.js';
+import { withSalePrices, salePriceMap, effectivePrice } from '../services/sales.js';
+
+/**
+ * The admin console asks for the catalogue exactly as stored (?raw=1) so that
+ * editing a product never writes a temporary sale price into it. Everyone
+ * else — the storefront — gets only published products, with any live
+ * announcement price already applied.
+ */
+const wantsRaw = (req) => req.query.raw === '1' && req.user?.role === 'admin';
 
 // Helpers
 function slugify(s = '') {
@@ -58,8 +67,12 @@ function validate(b = {}) {
 
 export async function listProducts(req, res, next) {
   try {
-    const items = await Product.find().sort({ createdAt: -1 });
-    return res.json({ items });
+    if (wantsRaw(req)) {
+      const items = await Product.find().sort({ createdAt: -1 });
+      return res.json({ items });
+    }
+    const items = await Product.find({ published: true }).sort({ createdAt: -1 });
+    return res.json({ items: await withSalePrices(items) });
   } catch (e) { return next(e); }
 }
 
@@ -93,7 +106,7 @@ export async function listPurchasableProducts(req, res, next) {
       .sort({ featured: -1, createdAt: -1 })
       .limit(limit);
 
-    return res.json({ items, count: items.length });
+    return res.json({ items: await withSalePrices(items), count: items.length });
   } catch (e) { return next(e); }
 }
 
@@ -120,7 +133,30 @@ export async function getProduct(req, res, next) {
   try {
     const doc = await Product.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Not found' });
-    return res.json(doc);
+    if (wantsRaw(req)) return res.json(doc);
+    if (doc.published === false) return res.status(404).json({ message: 'Not found' });
+    const [out] = await withSalePrices([doc]);
+    return res.json(out);
+  } catch (e) { return next(e); }
+}
+
+/**
+ * GET /api/products/prices?ids=a,b,c — current price and availability for the
+ * given products, live sale prices included. The cart uses it to refresh the
+ * prices it saved in the browser, so a sale that has started or ended is
+ * reflected before checkout rather than discovered at it.
+ */
+export async function currentPrices(req, res, next) {
+  try {
+    const ids = String(req.query.ids || '').split(',').map((x) => x.trim()).filter((x) => /^[a-f0-9]{24}$/i.test(x)).slice(0, 60);
+    if (!ids.length) return res.json({ items: {} });
+    const [docs, map] = await Promise.all([Product.find({ _id: { $in: ids } }).lean(), salePriceMap()]);
+    const items = {};
+    for (const d of docs) {
+      const { salePrice, sale } = effectivePrice(d, map);
+      items[String(d._id)] = { price: d.price, salePrice, sale, inStock: d.inStock !== false && d.published !== false };
+    }
+    return res.json({ items });
   } catch (e) { return next(e); }
 }
 
@@ -196,7 +232,7 @@ export async function updateProduct(req, res, next) {
       ...(b.contactForPrice !== undefined && { contactForPrice: !!b.contactForPrice }),
     };
 
-    const doc = await Product.findByIdAndUpdate(req.params.id, patch, { new: true, runValidators: true });
+    const doc = await Product.findByIdAndUpdate(req.params.id, patch, { returnDocument: 'after', runValidators: true });
     if (!doc) return res.status(404).json({ message: 'Not found' });
     return res.json(doc);
   } catch (e) { return next(e); }

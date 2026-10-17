@@ -64,7 +64,8 @@ export const getArtistProfile = async (_req, res) => {
     }
     res.json(profile);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -79,10 +80,11 @@ export const updateArtistProfile = async (req, res) => {
     const profile = await ArtistProfile.findOneAndUpdate(
       { key: KEY },
       { $set: update },
-      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
     res.json(profile);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

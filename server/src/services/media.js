@@ -22,6 +22,15 @@ const num = (value, fallback) => {
 /** Longest edge an uploaded image is allowed to keep, in pixels. */
 const MAX_IMAGE_EDGE = num(process.env.MEDIA_IMAGE_MAX_EDGE, 2400);
 const WEBP_QUALITY = num(process.env.MEDIA_WEBP_QUALITY, 82);
+/**
+ * Ceiling for a stored still image. A 5 MB phone photo should end up as a few
+ * hundred KB, not a couple of MB: if the first encode is over this, quality is
+ * stepped down to MIN_WEBP_QUALITY and then the dimensions are shrunk until it
+ * fits. Set MEDIA_IMAGE_TARGET_KB=0 to disable and keep the first encode.
+ */
+const TARGET_BYTES = (Number(process.env.MEDIA_IMAGE_TARGET_KB ?? 300) || 0) * 1024;
+const MIN_WEBP_QUALITY = 50;
+const MIN_EDGE = 900;
 
 /** Longest edge for video, and the quality knob (lower CRF = better = bigger). */
 const MAX_VIDEO_HEIGHT = num(process.env.MEDIA_VIDEO_MAX_HEIGHT, 720);
@@ -41,23 +50,40 @@ export const VIDEO_MIME = /^video\/(mp4|quicktime|webm|x-matroska|x-msvideo|mpeg
  * Oversized images are scaled down first — a 6000px phone photo costs the
  * visitor bandwidth for detail no layout on the site can show.
  */
-export const processImage = async (buffer, { folder = 'images', originalName = '' } = {}) => {
-  // `animated: true` reads every frame of an animated GIF/WebP rather than
-  // just the first — without it an uploaded GIF silently came out as a
-  // single static WebP frame. Harmless for an ordinary single-frame image.
-  const pipeline = sharp(buffer, { failOn: 'none', animated: true })
-    // Strips EXIF as a side effect, which also removes any GPS coordinates
-    // baked in by a phone camera.
-    .rotate()
-    .resize({
-      width: MAX_IMAGE_EDGE,
-      height: MAX_IMAGE_EDGE,
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .webp({ quality: WEBP_QUALITY, effort: 4 });
+export const compressImage = async (buffer) => {
+  const encode = (edge, quality, animated) =>
+    // `animated: true` reads every frame of an animated GIF/WebP rather than
+    // just the first — without it an uploaded GIF silently came out as a
+    // single static WebP frame. Harmless for an ordinary single-frame image.
+    sharp(buffer, { failOn: 'none', animated })
+      // Strips EXIF as a side effect, which also removes any GPS coordinates
+      // baked in by a phone camera.
+      .rotate()
+      .resize({ width: edge, height: edge, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality, effort: 5, smartSubsample: true })
+      .toBuffer({ resolveWithObject: true });
 
-  const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+  let edge = MAX_IMAGE_EDGE;
+  let quality = WEBP_QUALITY;
+  let { data, info } = await encode(edge, quality, true);
+
+  // Fit still images under the size ceiling. Animations are left as encoded:
+  // trading their quality for size needs a human eye.
+  const isAnimated = (info.pages || 1) > 1;
+  if (!isAnimated && TARGET_BYTES > 0) {
+    for (let pass = 0; pass < 8 && data.length > TARGET_BYTES; pass += 1) {
+      if (quality > MIN_WEBP_QUALITY) quality = Math.max(MIN_WEBP_QUALITY, quality - 8);
+      else if (edge * 0.85 >= MIN_EDGE) edge = Math.round(edge * 0.85);
+      else break;
+      ({ data, info } = await encode(edge, quality, false));
+    }
+  }
+
+  return { data, info };
+};
+
+export const processImage = async (buffer, { folder = 'images', originalName = '' } = {}) => {
+  const { data, info } = await compressImage(buffer);
 
   const uploaded = await uploadBuffer(data, {
     objectPath: buildObjectPath(folder, 'webp', originalName),

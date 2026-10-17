@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, Mail, Instagram, Facebook, Youtube, Globe, ArrowUpRight } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, ArrowUpRight } from 'lucide-react';
+import { Instagram, Facebook, Youtube } from './BrandIcons';
 import axios from "axios";
 import useSiteSettings from '../hooks/useSiteSettings';
 import { formatAddress } from '../data/siteSettings';

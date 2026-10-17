@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import {
-  uploadImage, uploadVideo, uploadPublicImage, removeMedia, storageStatus,
+  uploadImage, uploadVideo, uploadPublicImage, removeMedia, storageStatus, storageUsage, storageCleanup,
 } from '../controllers/media.controller.js';
 import { authenticateJWT } from '../middleware/auth.js';
 import { rateLimit } from 'express-rate-limit';
@@ -63,6 +63,8 @@ router.get('/status', authenticateJWT, storageStatus);
 router.post('/image', authenticateJWT, imageUpload.single('file'), handleUploadErrors, uploadImage);
 router.post('/video', authenticateJWT, videoUpload.single('file'), handleUploadErrors, uploadVideo);
 router.delete('/', authenticateJWT, removeMedia);
+router.get('/usage', authenticateJWT, storageUsage);
+router.post('/cleanup', authenticateJWT, storageCleanup);
 
 router.use(handleUploadErrors);
 

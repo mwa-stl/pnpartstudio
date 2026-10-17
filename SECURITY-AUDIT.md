@@ -7,6 +7,30 @@ This file documents what was found, what was fixed in code, and what **you** sti
 need to do by hand. The remaining actions cannot be done for you they involve
 rotating live credentials and rewriting git history.
 
+## Remediation status (2026-10-17)
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | Secrets in git | **Still yours to do.** `.env` is no longer tracked, but the old values live in history. Rotate every credential and purge history. |
+| 2 | Unauthenticated admin API | Fixed earlier; every admin route now also requires `role: admin`. |
+| 3 | Open admin registration | Fixed earlier. |
+| 4 | Order totals trusted from the browser | **Fixed.** `services/pricing.js` prices every cart from the database (price/sale price, stock, published, coupon, shipping). `create-order` stores the order as `awaiting_payment`; `capture-order` marks it `paid` only if PayPal confirms a COMPLETED capture for exactly that amount. Public `POST /orders`, `PATCH /orders/paypal/:id/capture` and the unauthenticated webhook-log route are gone. Store-pickup orders are priced the same way. |
+| 5 | No input validation | Partly: mongo-operator keys stripped from every body, address/contact fields whitelisted and length-capped on the money paths, contact/enquiry forms validated. No schema library yet. |
+| 6 | Runtime deps in devDependencies | Fixed earlier; lockfile present. |
+| 7 | PayPal token fetched per call | **Fixed** — cached, shared with the webhook. |
+| 8 | Error responses leak internals | **Fixed** — 5xx responses are generic in production; PayPal error bodies are logged, not returned. |
+| 9 | CSRF on cookie auth | **Fixed** — cookie-authenticated writes must come from an allowed origin; JWT pinned to HS256, 1-day lifetime. |
+| 10 | Upload limits | **Fixed** on the custom-order route (10 MB, JPEG/PNG/WebP only). |
+| 11 | Default helmet | **Fixed** — strict API CSP, no-referrer, HSTS. |
+
+Also fixed in this pass: HTML/header injection in contact and enquiry emails; CSV formula injection in the subscriber export; single-use coupons were never actually consumed (now spent atomically on confirmed payment); coupon codes now use a CSPRNG; order references are unguessable (`ORD-` + 10 random chars) and the public order lookup no longer returns PayPal payloads; login timing no longer reveals which emails exist; the server refuses to start with a missing or short `JWT_SECRET`; unused/dangerous code removed (reflect-any-origin CORS helper, unauthenticated `/redirect/complete-order` capture, stub checkout route, deprecated PayPal SDK); every dependency upgraded to latest and `npm audit` reports 0 vulnerabilities in server, client and admin.
+
+**Since then:** order references from before the random-id change (ORD-123456) now require the checkout email to look up or download an invoice; paid orders decrement stock atomically (a piece that sells out while a second buyer is mid-payment is flagged on the order in `stockIssue`); cancelling, refunding or failing an order (or a PayPal refund webhook) puts its stock back exactly once, and reinstating it takes the stock again; the built storefront and console ship a Content-Security-Policy meta tag (`script-src 'self'`, plus PayPal's SDK on the storefront).
+
+**Admin session:** the token is no longer held by the browser's scripts at all — sign-in sets an httpOnly cookie, the API never returns the token in a response body, and the console keeps nothing in sessionStorage/localStorage (it asks the server `/auth/me` who it is). Cookie writes must come from an allowed origin (CSRF). Set `COOKIE_SAMESITE=lax` when console and API share a site; the default `none` is blocked by browsers that refuse third-party cookies, and the sign-in page says so if that happens.
+
+**Remaining recommendations:** none outstanding from this audit beyond rotating the credentials that were committed to git history (section 1).
+
 ---
 
 ## 🔴 CRITICAL requires your action now

@@ -94,6 +94,7 @@ const ProductCard = ({ product }) => {
   const detailHref = `/product-details?id=${encodeURIComponent(product.id)}`;
 
   const onSale = typeof product.salePrice === "number" && product.salePrice !== null;
+  const percentOff = onSale && product.price > product.salePrice ? Math.round((1 - product.salePrice / product.price) * 100) : 0;
 
   return (
     <article className="card-k group h-full flex flex-col">
@@ -117,7 +118,11 @@ const ProductCard = ({ product }) => {
         )}
 
         {product.inStock ? (
-          product.featured && (
+          percentOff > 0 ? (
+            <span className="absolute top-0 right-0 bg-vermillion text-white px-2 py-1 sm:px-2.5 sm:py-1.5 font-mono text-[0.5rem] sm:text-[0.56rem] uppercase tracking-[0.12em] sm:tracking-[0.14em]">
+              −{percentOff}%
+            </span>
+          ) : product.featured && (
             <span className="absolute top-0 right-0 bg-vermillion text-white px-2 py-1 sm:px-2.5 sm:py-1.5 font-mono text-[0.5rem] sm:text-[0.56rem] uppercase tracking-[0.12em] sm:tracking-[0.14em]">
               Featured
             </span>

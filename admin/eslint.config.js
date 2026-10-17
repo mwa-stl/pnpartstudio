@@ -11,7 +11,7 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
-      reactHooks.configs['recommended-latest'],
+      reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     plugins: { react },
@@ -34,6 +34,8 @@ export default defineConfig([
       // A `const` referenced above its own declaration is in the temporal
       // dead zone: it builds fine and throws at render. Catch it at lint time.
       // Functions are exempt — hoisted declarations are safe and idiomatic.
+      // Fetch-on-mount (load() in an effect) is this codebase's pattern.
+      'react-hooks/set-state-in-effect': 'off',
       'no-use-before-define': ['error', { functions: false, variables: true, classes: true }],
     },
   },

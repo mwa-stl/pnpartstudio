@@ -39,7 +39,8 @@ export const getSiteSettings = async (_req, res) => {
     if (!doc) doc = await SiteSettings.create({ key: KEY, ...SITE_SETTINGS_DEFAULTS });
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -52,10 +53,11 @@ export const updateSiteSettings = async (req, res) => {
     const doc = await SiteSettings.findOneAndUpdate(
       { key: KEY },
       { $set: update },
-      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

@@ -159,8 +159,9 @@ const CheckoutPage = () => {
         fullName: fields.fullName,
         phone: fields.phone,
         email: fields.email,
-        items: itemsPayload,
-        total
+        // Only which products and how many; the server prices the order.
+        items: itemsPayload.map(({ productId, qty }) => ({ productId, qty })),
+        couponCode: coupon.code
       });
       clearCart();
       navigate("/store-pickup-success", { replace: true });
@@ -212,32 +213,19 @@ const CheckoutPage = () => {
     };
   }, [form.sameAsShipping, billing, shippingAddress]);
 
-  const totals = useMemo(() => ({
-    subtotal, shipping, discount, grandTotal: total, currency: "USD"
-  }), [subtotal, discount, total, shipping]);
-
   /* ---------------- PayPal ---------------- */
   const approvalLinkRef = useRef(null);
-
-  const saveOrder = useCallback(async (raw) => {
-    const orderData = {
-      customer: { firstName: form.firstName, lastName: form.lastName, email: form.email },
-      items: itemsPayload, shippingAddress, billingAddress, totals,
-      paymentMethod: 'paypal', ...raw
-    };
-    const { data } = await axios.post(api("/orders"), orderData, {
-      headers: { "Content-Type": "application/json" }
-    });
-    return data;
-  }, [form, itemsPayload, shippingAddress, billingAddress, totals]);
 
   const createPaypalOrder = useCallback(async () => {
     if (Object.keys(errors).length > 0 || Object.keys(errorsBilling).length > 0) return undefined;
     try {
       const { data } = await axios.post(api("/paypal/create-order"), {
-        items: itemsPayload,
+        // The server re-prices every line from the catalogue and applies the
+        // coupon itself, so only product ids, quantities and the code go up.
+        items: itemsPayload.map(({ productId, qty }) => ({ productId, qty })),
+        couponCode: coupon.code,
         customer: { firstName: form.firstName, lastName: form.lastName, email: form.email },
-        shippingAddress, billingAddress, totals,
+        shippingAddress, billingAddress,
         returnUrl: `${window.location.origin}/order/success`,
         cancelUrl: `${window.location.origin}/order/cancel`
       }, { headers: { "Content-Type": "application/json" } });
@@ -245,29 +233,30 @@ const CheckoutPage = () => {
       return data?.id;
     } catch (err) {
       console.error('Create order failed:', err?.message || err);
+      // The server rejects carts it cannot price (out of stock, bad coupon…) with a readable reason.
+      const reason = err?.response?.data?.error;
+      if (reason) toast.error(reason, { duration: 6000 });
       throw err;
     }
-  }, [errors, errorsBilling, itemsPayload, form, shippingAddress, billingAddress, totals]);
+  }, [errors, errorsBilling, itemsPayload, coupon.code, form, shippingAddress, billingAddress]);
 
   const onApprovePaypal = useCallback(async (data) => {
     try {
       const captureRes = await axios.post(api('/paypal/capture-order'), { orderId: data.orderID }, {
         headers: { "Content-Type": "application/json" }
       });
-      const orderData = {
-        paypalOrderId: data.orderID, status: 'paid', paymentMethod: 'paypal',
-        paypalCaptureResponse: captureRes.data
-      };
-      const saved = await saveOrder(orderData);
-      const referenceId = saved?.referenceId || saved?.orderId || data.orderID || "ODR-UNKNOWN";
+      const referenceId = captureRes.data?.referenceId || "ODR-UNKNOWN";
       sessionStorage.setItem("lastOrderId", referenceId);
       clearCart();
       navigate(`/order/success?orderId=${encodeURIComponent(referenceId)}`, { replace: true });
     } catch (err) {
-      console.error('Order creation failed:', err);
-      toast.error('Payment captured, but we could not save the order. Please contact support with your PayPal receipt.', { duration: 10000 });
+      console.error('Order capture failed:', err);
+      toast.error(
+        err?.response?.data?.error || 'We could not confirm your payment. If you were charged, please contact support with your PayPal receipt.',
+        { duration: 10000 }
+      );
     }
-  }, [navigate, saveOrder, clearCart]);
+  }, [navigate, clearCart]);
 
   const onErrorPaypal = useCallback((err) => {
     console.error('PayPal error:', err);

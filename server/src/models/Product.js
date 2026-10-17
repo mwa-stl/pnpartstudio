@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 // --- Schema ---
 const productSchema = new mongoose.Schema(
@@ -31,5 +32,8 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+productSchema.plugin(mediaCleanupPlugin, { fields: ['images'] });
 
 export const Product = mongoose.model('Product', productSchema);

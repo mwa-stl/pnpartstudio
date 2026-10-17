@@ -1,6 +1,5 @@
 
 import GalleryItem from '../models/GalleryItem.js';
-import { deleteObject, objectPathFromUrl } from '../services/storage.js';
 
 /** Media fields carried on both create paths — images and videos alike. */
 const mediaFields = (src) => ({
@@ -105,12 +104,7 @@ export async function updateGalleryItem(req, res, next) {
       if (k in req.body) payload[k] = req.body[k];
     });
 
-    // Replacing the file leaves the old object orphaned in the bucket.
-    if (req.body.oldStoragePath && req.body.oldStoragePath !== payload.storagePath) {
-      try { await deleteObject(req.body.oldStoragePath); }
-      catch (e) { console.error('Bucket delete failed:', e?.message); }
-    }
-
+    // The model's media plugin removes the previous file/poster from the bucket when they are replaced.
     await GalleryItem.updateOne({ _id: id }, { $set: payload });
     const updated = await GalleryItem.findById(id).lean();
     if (!updated) return res.status(404).json({ message: 'Not found' });
@@ -125,17 +119,7 @@ export async function deleteGalleryItem(req, res, next) {
     const doc = await GalleryItem.findById(id).lean();
     if (!doc) return res.status(404).json({ message: 'Not found' });
 
-    // Take the media with the record so the bucket does not fill with orphans.
-    // Failures are logged rather than thrown: the record still has to go.
-    for (const target of [
-      doc.storagePath || objectPathFromUrl(doc.src),
-      doc.posterPath || objectPathFromUrl(doc.poster),
-    ]) {
-      if (!target) continue;
-      try { await deleteObject(target); }
-      catch (e) { console.error('Bucket delete failed:', e?.message); }
-    }
-
+    // The model's media plugin deletes the file (and video poster) from the bucket with the record.
     await GalleryItem.deleteOne({ _id: id });
     res.json({ ok: true });
   } catch (err) { next(err); }

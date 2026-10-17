@@ -30,7 +30,7 @@ export const updateCoupon = asyncHandler(async (req, res) => {
   if (b.expiresAt !== undefined) update.expiresAt = b.expiresAt ? new Date(b.expiresAt) : null;
   if (b.active != null) update.active = !!b.active;
 
-  const doc = await Coupon.findByIdAndUpdate(id, { $set: update }, { new: true, runValidators: true }).lean(); // runValidators ensures min/max checked [17][8]
+  const doc = await Coupon.findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after', runValidators: true }).lean(); // runValidators ensures min/max checked [17][8]
   if (!doc) return res.status(404).json({ message: "Not found" });
   res.json(doc);
 });
@@ -38,7 +38,7 @@ export const updateCoupon = asyncHandler(async (req, res) => {
 export const updateCouponStatus = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const next = !!req.body.active;
-  const doc = await Coupon.findByIdAndUpdate(id, { $set: { active: next } }, { new: true }).lean();
+  const doc = await Coupon.findByIdAndUpdate(id, { $set: { active: next } }, { returnDocument: 'after' }).lean();
   if (!doc) return res.status(404).json({ message: "Not found" });
   res.json({ _id: doc._id, active: doc.active });
 });

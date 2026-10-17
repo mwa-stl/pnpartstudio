@@ -46,6 +46,10 @@ const TotalsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+
+// What this order took off stock, and whether it has been given back — see services/inventory.js.
+const StockTakenSchema = new mongoose.Schema({ productId: String, qty: Number, name: String }, { _id: false });
+
 const OrderSchema = new mongoose.Schema(
   {
     customer: {
@@ -58,15 +62,26 @@ const OrderSchema = new mongoose.Schema(
     billingAddress: AddressSchema,
     totals: TotalsSchema,
     paymentMethod: { type: String, default: 'cod' },
-    paypalOrderId: { type: String },
+    paypalOrderId: { type: String, index: true },
     status: { type: String, default: 'pending' },
     paypalCaptureResponse: { type: mongoose.Schema.Types.Mixed },
     captures: { type: [mongoose.Schema.Types.Mixed], default: [] },
-    referenceId: { type: String },
+    referenceId: { type: String, index: true },
+    couponCode: { type: String, default: '' },
+    // Set when a paid order could not be fully covered by stock; for a human to resolve.
+    stockIssue: { type: String, default: '' },
+    stockTaken: { type: [StockTakenSchema], default: [] },
+    stockRestored: { type: Boolean, default: false },
     source: { type: String, default: 'website' },
     webhooks: { type: [mongoose.Schema.Types.Mixed], default: [] },
   },
   { timestamps: true }
+);
+
+// Checkouts that were started but never paid are swept after a week.
+OrderSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 7 * 24 * 60 * 60, partialFilterExpression: { status: 'awaiting_payment' } }
 );
 
 export default mongoose.model('Order', OrderSchema);

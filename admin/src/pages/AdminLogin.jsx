@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const LOGIN_URL = `${API_BASE}/api/auth/login`;
+const ME_URL = `${API_BASE}/api/auth/me`;
 const EMAIL_KEY = "adminRememberEmail";
 
 axios.defaults.withCredentials = true;
@@ -46,14 +47,21 @@ const AdminLogin = () => {
       if (remember) localStorage.setItem(EMAIL_KEY, email);
       else localStorage.removeItem(EMAIL_KEY);
 
-      const { data } = await axios.post(
+      await axios.post(
         LOGIN_URL,
         { email: String(email).trim(), password },
         { withCredentials: true }
       );
 
-      if (data?.accessToken) {
-        sessionStorage.setItem("accessToken", data.accessToken);
+      // The server answered, but is the session cookie actually usable? A
+      // browser that blocks third-party cookies accepts the sign-in and then
+      // silently drops the cookie, which would otherwise look like a loop back
+      // to this page with no explanation.
+      try {
+        await axios.get(ME_URL, { withCredentials: true });
+      } catch {
+        setFormError("Signed in, but your browser did not keep the session cookie. Allow cookies for this site (and its API), or ask your developer to serve the API on the same site as the console.");
+        return;
       }
 
       toast.success("Signed in");

@@ -1,18 +1,26 @@
 // middleware/auth.js
 import jwt from 'jsonwebtoken';
 
+const verify = (token) => jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+
 function readToken(req) {
   const auth = req.headers.authorization || '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   return req.cookies?.token || bearer;
 }
 
-/** Rejects the request unless a valid token is present. */
+/**
+ * Rejects the request unless a valid ADMIN token is present. Every account in
+ * this system is an admin, but the role is checked anyway so that adding any
+ * other kind of user later cannot silently open the console to them.
+ */
 export function authenticateJWT(req, res, next) {
   const token = readToken(req);
   if (!token) return res.status(401).json({ message: 'Unauthorized' });
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const user = verify(token);
+    if (user?.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    req.user = user;
     return next();
   } catch {
     return res.status(401).json({ message: 'Invalid token' });
@@ -28,7 +36,7 @@ export function attachUserIfPresent(req, _res, next) {
   const token = readToken(req);
   if (token) {
     try {
-      req.user = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = verify(token);
     } catch {
       // An invalid token is treated as "anonymous" here, not an error.
     }

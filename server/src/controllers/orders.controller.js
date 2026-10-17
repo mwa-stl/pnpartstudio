@@ -1,24 +1,7 @@
 // controllers/orders.controller.js
 import Order from '../models/Order.js';
 import { streamInvoicePdf, buildInvoiceDocxBuffer } from '../lib/invoiceDocs.js';
-
-export async function createOrder(req, res) {
-  try {
-    const orderData = req.body;
-
-    if (!orderData.referenceId) {
-      orderData.referenceId = 'ORD-' + Date.now().toString().slice(-6);
-    }
-    if (!orderData.shippingAddress) throw new Error("Missing shipping address");
-    if (!orderData.billingAddress) orderData.billingAddress = { ...orderData.shippingAddress };
-    const order = await Order.create(orderData);
-    res.status(201).json({ success: true, orderId: order._id, referenceId: order.referenceId, order });
-  } catch (e) {
-    console.error('Order creation failed:', e);
-    res.status(500).json({ success: false, error: 'Order creation failed', message: e.message });
-  }
-}
-
+import { syncStockForStatus } from '../services/inventory.js';
 
 /** The shape the admin console (and the invoice generator) expects, out of the raw Order doc. */
 function shapeOrder(order) {
@@ -64,7 +47,8 @@ function shapeOrder(order) {
 export async function getOrders(req, res) {
   try {
     const { status } = req.query;
-    const filter = status ? { status } : {};
+    // Checkouts that were started but never paid are not orders yet.
+    const filter = status ? { status: String(status) } : { status: { $ne: 'awaiting_payment' } };
     const orders = await Order.find(filter).sort({ createdAt: -1 });
     res.json({ success: true, items: orders.map(shapeOrder) });
   } catch (e) {
@@ -139,7 +123,7 @@ export async function updateOrderStatus(req, res) {
     const validStatuses = [
       'pending', 'paid', 'fulfilled', 'unfulfilled', 'cancelled', 'refunded', 'failed',
       'CREATED', 'SAVED', 'APPROVED', 'VOIDED', 'COMPLETED', 'PAYER_ACTION_REQUIRED',
-      'confirmed', 'shipped', 'out_for_delivery', 'delivered'
+      'confirmed', 'shipped', 'out_for_delivery', 'delivered', 'payment_mismatch'
     ];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, error: 'Invalid status' });
@@ -147,26 +131,65 @@ export async function updateOrderStatus(req, res) {
     const order = await Order.findByIdAndUpdate(
       id,
       { status, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    // Cancelled / refunded / failed puts the stock back; reinstating the order takes it again.
+    await syncStockForStatus(Order, order._id, order.status);
     res.json({ success: true, status: order.status, order });
   } catch (e) {
     res.status(500).json({ success: false, error: 'Failed to update status' });
   }
 }
 
+// Payment-processor payloads and internals never leave the server.
+const PUBLIC_EXCLUDE = '-paypalCaptureResponse -captures -webhooks -paypalOrderId -couponCode';
+
+/**
+ * References issued before the switch to random ids look like ORD-123456 and
+ * can be enumerated, so for those the lookup also needs the email on the
+ * order. New references (ORD- + 10 random characters) are not guessable and
+ * work on their own, exactly as before.
+ */
+const CURRENT_REF = /^ORD-[A-HJ-NP-Z2-9]{10}$/;
+const isLegacyRef = (ref) => !CURRENT_REF.test(String(ref));
+
+const emailMatches = (order, email) => {
+  const given = String(email || '').trim().toLowerCase();
+  if (!given) return false;
+  return [order.customer?.email, order.shippingAddress?.email, order.billingAddress?.email]
+    .filter(Boolean)
+    .some((e) => String(e).trim().toLowerCase() === given);
+};
+
+/** Answers before any database lookup, so it reveals nothing about which references exist. */
+const needsEmail = (req, res) => {
+  if (isLegacyRef(req.params.referenceId) && !String(req.query.email || '').trim()) {
+    res.status(403).json({
+      success: false,
+      needEmail: true,
+      error: 'For this older order, please also enter the email address used at checkout.',
+    });
+    return true;
+  }
+  return false;
+};
+
 // Get an order by referenceId
 export async function getOrderByReferenceId(req, res) {
   try {
     const { referenceId } = req.params;
-    const order = await Order.findOne({ referenceId });
-    if (!order) {
+    if (needsEmail(req, res)) return;
+    const order = await Order.findOne({ referenceId: String(referenceId), status: { $ne: 'awaiting_payment' } })
+      .select(PUBLIC_EXCLUDE)
+      .lean();
+    if (!order || (isLegacyRef(referenceId) && !emailMatches(order, req.query.email))) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
     res.json({ success: true, order });
   } catch (e) {
-    res.status(500).json({ success: false, error: 'Failed to fetch order', message: e.message });
+    console.error('Order lookup failed:', e);
+    res.status(500).json({ success: false, error: 'Failed to fetch order' });
   }
 }
 
@@ -183,8 +206,9 @@ export async function getOrderByReferenceId(req, res) {
 export async function downloadPublicInvoicePdf(req, res) {
   try {
     const { referenceId } = req.params;
-    const order = await Order.findOne({ referenceId });
-    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    if (needsEmail(req, res)) return;
+    const order = await Order.findOne({ referenceId: String(referenceId), status: { $ne: 'awaiting_payment' } });
+    if (!order || (isLegacyRef(referenceId) && !emailMatches(order, req.query.email))) return res.status(404).json({ success: false, error: 'Order not found' });
     if ((order.status || '').toLowerCase() !== 'delivered') {
       return res.status(403).json({ success: false, error: 'The invoice is available once the order is delivered.' });
     }
@@ -192,48 +216,5 @@ export async function downloadPublicInvoicePdf(req, res) {
   } catch (e) {
     console.error('Public invoice PDF generation failed:', e);
     res.status(500).json({ success: false, error: 'Failed to generate invoice' });
-  }
-}
-
-export async function updateOrderWithCapture(req, res) {
-  try {
-    const { paypalOrderId } = req.params;
-    const { captureResponse } = req.body;
-    const order = await Order.findOneAndUpdate(
-      { paypalOrderId },
-      {
-        paypalCaptureResponse: captureResponse,
-        status: 'paid',
-        $push: { captures: captureResponse },
-        updatedAt: new Date()
-      },
-      { new: true }
-    );
-    if (!order)
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    res.json({ success: true, order });
-  } catch (e) {
-    res.status(500).json({ success: false, error: 'Failed to update capture' });
-  }
-}
-
-export async function addWebhookEvent(req, res) {
-  try {
-    const { paypalOrderId } = req.params;
-    const webhookEvent = req.body;
-    const order = await Order.findOneAndUpdate(
-      { paypalOrderId },
-      {
-        $push: {
-          webhooks: { ...webhookEvent, receivedAt: new Date() }
-        }
-      },
-      { new: true }
-    );
-    if (!order)
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    res.json({ success: true, order });
-  } catch (e) {
-    res.status(500).json({ success: false, error: 'Failed to log webhook event' });
   }
 }

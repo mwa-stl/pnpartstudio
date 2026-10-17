@@ -4,6 +4,7 @@ import { ArrowUpRight } from 'lucide-react';
 import axios from 'axios';
 
 import HeroCarousel from '../components/HeroCarousel';
+import SaleBanner from '../components/SaleBanner';
 import ProductCard from '../components/ProductCard';
 import TestimonialsCarousel from '../components/TestimonialsCarousel';
 import Reveal, { RevealLines } from '../components/motion/Reveal';
@@ -140,6 +141,7 @@ function HomePage() {
   return (
     <div className="bg-paper">
       <HeroCarousel autoPlay interval={2000} showArrows showIndicators />
+      <SaleBanner />
 
       {/* ───────── TICKER ───────── */}
       <div className="bg-ink border-y border-ink py-3.5 overflow-hidden">

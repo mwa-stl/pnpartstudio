@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 /**
  * A single document that drives the artist copy on the storefront:
@@ -102,6 +103,9 @@ export const ARTIST_PROFILE_DEFAULTS = {
     customersLabel: 'Happy customers',
   },
 };
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+artistProfileSchema.plugin(mediaCleanupPlugin, { fields: ['photo'] });
 
 const ArtistProfile = mongoose.model('ArtistProfile', artistProfileSchema);
 export default ArtistProfile;

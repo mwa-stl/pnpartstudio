@@ -22,12 +22,11 @@ const AdminSidebar = ({ open, onClose }) => {
 
   const handleLogout = async () => {
     try {
-      sessionStorage.removeItem("accessToken");
+      // The server clears the httpOnly session cookie; there is nothing to clear locally.
       await axios.post(LOGOUT_URL, {}, { withCredentials: true });
       toast.success("Logged out");
     } catch {
-      // The local token is already cleared, so the session is over either way.
-      toast.info("Signed out locally");
+      toast.error("Could not reach the server to sign out. Close the tab and try again.");
     } finally {
       setTimeout(() => navigate("/admin/login", { replace: true }), 350);
     }

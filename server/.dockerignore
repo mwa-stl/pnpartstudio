@@ -32,3 +32,5 @@ coverage/
 .idea/
 .DS_Store
 Thumbs.db
+
+tests

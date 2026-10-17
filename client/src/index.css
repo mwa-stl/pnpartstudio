@@ -90,7 +90,66 @@
   }
 }
 
-.pt-nav { padding-top: 84px; }
+/* --bar-h is set by AnnouncementBar while a sale strip sits above the menu. */
+.pt-nav { padding-top: calc(84px + var(--bar-h, 0px)); }
+
+/* ---------------------------------------------------------------------
+   SALE — the animated menu link and the live dot used on sale surfaces
+   --------------------------------------------------------------------- */
+.nav-sale {
+  /* The menu link keeps to a fixed vermillion -> amber so it reads on both the
+     light and the dark (scrolled) header; the announcement's own accent colours
+     the banner and top bar instead. */
+  --sale-hot: #E8340C;
+  --sale-warm: #FF8A1F;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: sale-wiggle 6s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+.nav-sale-text {
+  background: linear-gradient(100deg, var(--sale-hot) 0%, var(--sale-warm) 28%, var(--sale-hot) 52%, var(--sale-warm) 78%, var(--sale-hot) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: sale-shimmer 3s linear infinite;
+}
+.nav-sale-dot, .sale-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--sale-warm, #FF8A1F);
+  flex: none;
+}
+/* On the dark (scrolled) header, lift the link a little. */
+header.bg-ink .nav-sale-text { filter: brightness(1.25); }
+.nav-sale-dot::after, .sale-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: sale-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes sale-shimmer { to { background-position: -250% 0; } }
+@keyframes sale-ping { 0% { transform: scale(1); opacity: .7; } 80%, 100% { transform: scale(3.2); opacity: 0; } }
+@keyframes sale-wiggle {
+  0%, 86%, 100% { transform: rotate(0deg); }
+  89% { transform: rotate(-4deg) scale(1.06); }
+  92% { transform: rotate(4deg) scale(1.06); }
+  95% { transform: rotate(-2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-sale { animation: none; }
+  .nav-sale-text { animation: none; background-size: 100% 100%; }
+  .nav-sale-dot::after, .sale-dot::after { animation: none; display: none; }
+}
 
 /* ---------------------------------------------------------------------
    TYPE SCALE didone at poster size wants tight leading and tight tracking

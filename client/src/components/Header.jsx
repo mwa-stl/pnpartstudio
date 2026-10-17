@@ -1,15 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { ShoppingCart, Heart, Menu, X, ArrowUpRight, Plus } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import CartDropdown from "./CartDropdown";
+import AnnouncementBar from "./AnnouncementBar";
+import useAnnouncements from "../hooks/useAnnouncements";
 import ShopMegaMenu from "./ShopMegaMenu";
 import logoBlack from "../assets/pnplogoblack1.png";
 import logoWhite from "../assets/pnplogowhite.png";
 
-const navLinks = [
+const baseNavLinks = [
   { label: "Home", to: "/" },
   { label: "About Us", to: "/about" },
   { label: "Shop", to: "/shop" },
@@ -23,6 +25,22 @@ const EASE = [0.16, 1, 0.3, 1];
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // A live announcement adds one animated link right after Shop.
+  const { items: announcements } = useAnnouncements();
+  const navLinks = useMemo(() => {
+    const forNav = announcements.filter((a) => a.showInNav);
+    if (!forNav.length) return baseNavLinks;
+    const first = forNav[0];
+    const sale = {
+      label: first.navLabel || "Sale",
+      to: forNav.length === 1 ? `/sale/${first.slug}` : "/sale",
+      sale: true,
+      accent: first.accent,
+    };
+    const at = baseNavLinks.findIndex((l) => l.label === "Shop") + 1;
+    return [...baseNavLinks.slice(0, at), sale, ...baseNavLinks.slice(at)];
+  }, [announcements]);
   const [shopOpen, setShopOpen] = useState(false);       // desktop mega menu
   const [mobileShopOpen, setMobileShopOpen] = useState(false);
   const { totalItems, state, dispatch } = useCart();
@@ -105,6 +123,7 @@ const Header = () => {
         scrolled ? "bg-ink border-ink" : "bg-paper/92 backdrop-blur-md border-rule"
       }`}
     >
+      <AnnouncementBar />
       <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 lg:px-8" style={{ height: 84 }}>
 
         {/* Wordmark */}
@@ -133,8 +152,15 @@ const Header = () => {
         {/* Desktop nav */}
         <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-7">
-            {navLinks.map(({ label, to }) =>
-              label !== "Shop" ? (
+            {navLinks.map(({ label, to, sale, accent }) =>
+              sale ? (
+                <li key="sale-link">
+                  <NavLink to={to} className="nav-sale font-mono text-[0.66rem] font-semibold uppercase tracking-[0.16em] py-1" style={{ "--sale-accent": accent || "#E8340C" }}>
+                    <span className="nav-sale-dot" aria-hidden="true" />
+                    <span className="nav-sale-text">{label}</span>
+                  </NavLink>
+                </li>
+              ) : label !== "Shop" ? (
                 <li key={to}>
                   <NavLink to={to} className={navItem}>{label}</NavLink>
                 </li>
@@ -184,7 +210,7 @@ const Header = () => {
                            can span the page and there is no gap for the
                            pointer to fall through on the way down. */
                         className="fixed left-0 right-0 z-40 bg-paper border-y border-ink"
-                        style={{ top: 84 }}
+                        style={{ top: "calc(84px + var(--bar-h, 0px))" }}
                         onMouseEnter={openShop}
                         onMouseLeave={() => closeShop()}
                       >
@@ -298,7 +324,17 @@ const Header = () => {
             <div className="flex-1 px-5 py-8">
               <ul className="flex flex-col">
                 {navLinks.map((link, i) =>
-                  link.label === "Shop" ? (
+                  link.sale ? (
+                    <li key="sale-link" className="border-b border-paper/12">
+                      <NavLink to={link.to} className="nav-sale flex items-baseline gap-4 py-4 group" style={{ "--sale-accent": link.accent || "#E8340C" }} onClick={() => setMenuOpen(false)}>
+                        <span className="font-mono text-[0.6rem] text-vermillion tabular-nums">0{i + 1}</span>
+                        <span className="nav-sale-text t-display !text-[2rem] inline-flex items-center gap-3">
+                          <span className="nav-sale-dot" aria-hidden="true" />
+                          {link.label}
+                        </span>
+                      </NavLink>
+                    </li>
+                  ) : link.label === "Shop" ? (
                     <li key="Shop" className="border-b border-paper/12">
                       {/* Tapping Shop expands the categories in place; the
                           arrow beside it still goes straight to /shop. */}
@@ -356,7 +392,7 @@ const Header = () => {
                 )}
                 <li className="border-b border-paper/12">
                   <NavLink to="/wishlist" className="flex items-baseline gap-4 py-4 group" onClick={() => setMenuOpen(false)}>
-                    <span className="font-mono text-[0.6rem] text-vermillion tabular-nums">08</span>
+                    <span className="font-mono text-[0.6rem] text-vermillion tabular-nums">{String(navLinks.length + 1).padStart(2, "0")}</span>
                     <span className="t-display !text-[2rem] text-paper group-hover:text-vermillion transition-colors">
                       Wishlist {wishlistCount > 0 && <sup className="font-mono text-[0.7rem] text-vermillion">{wishlistCount}</sup>}
                     </span>

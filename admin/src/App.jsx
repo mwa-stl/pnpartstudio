@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import AdminLayout from "./layout/AdminLayout.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
@@ -19,11 +20,35 @@ import PageHeroesPage from "./pages/PageHeroesPage.jsx";
 import ReviewsPage from "./pages/ReviewsPage.jsx";
 import WelcomePopupPage from "./pages/WelcomePopupPage.jsx";
 import BulkWatermarkPage from "./pages/BulkWatermarkPage.jsx";
+import AnnouncementsPage from "./pages/AnnouncementsPage.jsx";
+import StoragePage from "./pages/StoragePage.jsx";
 
+const ME_URL = `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/auth/me`;
+
+/**
+ * Gate for the console. The session is an httpOnly cookie the page cannot see,
+ * so the only way to know whether it is valid is to ask the server who we are.
+ */
 function RequireAdmin() {
   const location = useLocation();
-  const token = typeof window !== "undefined" ? sessionStorage.getItem("accessToken") : null;
-  if (!token) {
+  const [state, setState] = useState("checking"); // checking | ok | anonymous
+
+  useEffect(() => {
+    let cancelled = false;
+    axios.get(ME_URL, { withCredentials: true })
+      .then(() => { if (!cancelled) setState("ok"); })
+      .catch(() => { if (!cancelled) setState("anonymous"); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (state === "checking") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-paper" role="status" aria-label="Checking your session">
+        <span className="font-mono text-[0.66rem] uppercase tracking-[0.2em] text-slate">Checking session…</span>
+      </div>
+    );
+  }
+  if (state === "anonymous") {
     return <Navigate to="/admin/login" replace state={{ from: location.pathname + location.search }} />;
   }
   return <Outlet />;
@@ -47,6 +72,7 @@ export default function App() {
             <Route path="gallery" element={<GalleryPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="testimonials" element={<TestimonialsPage />} />
+            <Route path="announcements" element={<AnnouncementsPage />} />
             <Route path="coupons" element={<CouponsPage />} />
             <Route path="newsletters" element={<NewslettersPage />} />
             <Route path="store-pickup-orders" element={<StorePickupOrdersPage />} />
@@ -57,6 +83,7 @@ export default function App() {
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="welcome-popup" element={<WelcomePopupPage />} />
             <Route path="bulk-watermark" element={<BulkWatermarkPage />} />
+            <Route path="storage" element={<StoragePage />} />
           </Route>
         </Route>
         {/* Fallbacks */}

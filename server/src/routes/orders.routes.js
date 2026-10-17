@@ -2,21 +2,19 @@
 import { Router } from 'express';
 import * as orders from '../controllers/orders.controller.js';
 import { authenticateJWT } from '../middleware/auth.js';
+import { lookupLimiter } from '../middleware/security.js';
 
 const router = Router();
 
-// Public checkout creates the order, and customers look theirs up by
-// reference from the confirmation email.
-router.post('/', orders.createOrder);
-router.get('/ref/:referenceId', orders.getOrderByReferenceId);
-router.get('/ref/:referenceId/invoice.pdf', orders.downloadPublicInvoicePdf);
+// Orders are created only by the PayPal flow (POST /api/paypal/create-order,
+// then capture-order), which prices them on the server. There is deliberately
+// no public "create order" or "mark paid" endpoint.
 
-// Called by the PayPal return/capture flow.
-router.patch('/paypal/:paypalOrderId/capture', orders.updateOrderWithCapture);
-router.post('/paypal/:paypalOrderId/webhook', orders.addWebhookEvent);
+// Customers look an order up by its (unguessable) reference.
+router.get('/ref/:referenceId', lookupLimiter, orders.getOrderByReferenceId);
+router.get('/ref/:referenceId/invoice.pdf', lookupLimiter, orders.downloadPublicInvoicePdf);
 
-// Admin only these expose or mutate every customer's order, including
-// names, emails, phone numbers and shipping addresses.
+// Admin only: these expose or mutate every customer's order.
 router.get('/', authenticateJWT, orders.getOrders);
 router.get('/:id/invoice.pdf', authenticateJWT, orders.downloadInvoicePdf);
 router.get('/:id/invoice.docx', authenticateJWT, orders.downloadInvoiceDocx);

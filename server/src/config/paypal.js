@@ -1,148 +1,145 @@
 // config/paypal.js
 import axios from "axios";
 
-const {
-  PAYPAL_CLIENT_ID,
-  PAYPAL_CLIENT_SECRET,
-  PAYPAL_MODE,
-} = process.env;
-
+// PAYPAL_API_OVERRIDE exists only so tests can point at a fake PayPal; it is
+// ignored in production so a stray value can never redirect real payments.
 const BASE_URL =
-  PAYPAL_MODE === "live"
-    ? "https://api-m.paypal.com"
-    : "https://api-m.sandbox.paypal.com";
+  (process.env.NODE_ENV !== "production" && process.env.PAYPAL_API_OVERRIDE) ||
+  (process.env.PAYPAL_MODE === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com");
 
+const http = axios.create({ baseURL: BASE_URL, timeout: 20000 });
+
+let cached = { token: null, expiresAt: 0 };
+let inflight = null;
+
+/**
+ * OAuth token, cached until a minute before it expires. Fetching a fresh one
+ * for every checkout and every webhook is slow and burns PayPal's rate limit.
+ */
 export async function getPayPalAccessToken() {
+  const { PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET } = process.env;
   if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
     throw new Error("PayPal credentials not set in environment!");
   }
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString("base64");
-  const { data } = await axios.post(
-    `${BASE_URL}/v1/oauth2/token`,
-    "grant_type=client_credentials",
-    {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
-    }
-  );
-  return data.access_token;
+  if (cached.token && Date.now() < cached.expiresAt) return cached.token;
+  if (inflight) return inflight;
+
+  inflight = (async () => {
+    const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString("base64");
+    const { data } = await http.post("/v1/oauth2/token", "grant_type=client_credentials", {
+      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    cached = { token: data.access_token, expiresAt: Date.now() + Math.max(0, (data.expires_in - 60)) * 1000 };
+    return cached.token;
+  })().finally(() => { inflight = null; });
+
+  return inflight;
 }
 
-export async function createPayPalOrder({ items, customer, shippingAddress, totals, returnUrl, cancelUrl }) {
+const money = (n) => Number(n).toFixed(2);
+
+/**
+ * Creates the PayPal order from amounts the SERVER computed. `items` and
+ * `totals` come out of services/pricing.js, never from the browser.
+ */
+export async function createPayPalOrder({ items, totals, customer, shippingAddress, returnUrl, cancelUrl, referenceId }) {
   const accessToken = await getPayPalAccessToken();
+  const currency = totals.currency;
 
-  // Accept precision: support 'qty' fallback for all items
-  const safeItems = (items || []).map(item => ({
-    ...item,
-    quantity: item.qty || item.quantity || 1,
-    name: item.name || item.title || 'Product',
-    description: item.description || "",
-    price: Number(item.price),
-  }));
+  const purchase_unit = {
+    reference_id: referenceId,
+    custom_id: referenceId,
+    amount: {
+      currency_code: currency,
+      value: money(totals.grandTotal),
+      breakdown: {
+        item_total: { currency_code: currency, value: money(totals.subtotal) },
+        shipping: { currency_code: currency, value: money(totals.shipping) },
+        tax_total: { currency_code: currency, value: money(totals.tax) },
+        discount: { currency_code: currency, value: money(totals.discount) },
+      },
+    },
+    items: items.map((item) => ({
+      name: String(item.name).slice(0, 127),
+      unit_amount: { value: money(item.price), currency_code: currency },
+      quantity: String(item.qty),
+      description: String(item.description || "").slice(0, 127),
+      category: "PHYSICAL_GOODS",
+    })),
+  };
 
-  // Support cart/total fallback (grandTotal or on-the-fly computation)
-  const totalAmount = totals?.grandTotal
-    ? (Number(totals.grandTotal).toFixed(2))
-    : safeItems.reduce((sum, item) => sum + (item.price * Number(item.quantity)), 0).toFixed(2);
-
-  const breakdown = totals
-    ? {
-      item_total: {
-        currency_code: totals.currency || "USD",
-        value: safeItems
-          .reduce((sum, i) => sum + (i.price * Number(i.quantity)), 0)
-          .toFixed(2)
+  if (shippingAddress) {
+    purchase_unit.shipping = {
+      name: { full_name: shippingAddress.fullName },
+      address: {
+        address_line_1: shippingAddress.line1,
+        address_line_2: shippingAddress.line2 || undefined,
+        admin_area_2: shippingAddress.city,
+        admin_area_1: shippingAddress.state,
+        postal_code: shippingAddress.postalCode,
+        country_code: shippingAddress.countryCode,
       },
-      shipping: {
-        currency_code: totals.currency || "USD",
-        value: totals.shipping ? Number(totals.shipping).toFixed(2) : "0.00"
-      },
-      tax_total: {
-        currency_code: totals.currency || "USD",
-        value: totals.tax ? Number(totals.tax).toFixed(2) : "0.00"
-      },
-      discount: {
-        currency_code: totals.currency || "USD",
-        value: totals.discount ? Number(totals.discount).toFixed(2) : "0.00"
-      }
-    }
-    : undefined;
-
-  const purchase_units = [
-    {
-      amount: {
-        currency_code: totals?.currency || "USD",
-        value: totalAmount,
-        ...(breakdown && { breakdown })
-      },
-      items: safeItems.map(item => ({
-        name: item.name,
-        unit_amount: { value: Number(item.price).toFixed(2), currency_code: totals?.currency || "USD" },
-        quantity: String(item.quantity),
-        description: item.description,
-        category: "PHYSICAL_GOODS"
-      })),
-      ...(shippingAddress && {
-        shipping: {
-          name: { full_name: shippingAddress.fullName || `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}` },
-          address: {
-            address_line_1: shippingAddress.line1 || shippingAddress.address1,
-            address_line_2: shippingAddress.line2 || shippingAddress.address2 || "",
-            admin_area_2: shippingAddress.city,
-            admin_area_1: shippingAddress.state,
-            postal_code: shippingAddress.postalCode || shippingAddress.zip,
-            country_code: shippingAddress.countryCode || shippingAddress.country || "US"
-          }
-        }
-      })
-    }
-  ];
+    };
+  }
 
   const orderData = {
     intent: "CAPTURE",
-    purchase_units,
+    purchase_units: [purchase_unit],
     ...(customer && {
       payer: {
         email_address: customer.email,
-        name: {
-          given_name: customer.firstName,
-          surname: customer.lastName
-        }
-      }
+        name: { given_name: customer.firstName, surname: customer.lastName },
+      },
     }),
     application_context: {
       brand_name: "PnP Art Studio",
       user_action: "PAY_NOW",
       return_url: returnUrl,
-      cancel_url: cancelUrl
-    }
+      cancel_url: cancelUrl,
+    },
   };
 
-  const { data } = await axios.post(
-    `${BASE_URL}/v2/checkout/orders`, orderData,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      }
-    }
-  );
+  const { data } = await http.post("/v2/checkout/orders", orderData, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": `create-${referenceId}`,
+    },
+  });
   return data;
 }
 
 export async function capturePayPalOrder(orderId) {
   const accessToken = await getPayPalAccessToken();
-  const { data } = await axios.post(
-    `${BASE_URL}/v2/checkout/orders/${orderId}/capture`,
+  const { data } = await http.post(
+    `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,
     {},
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      }
+        "Content-Type": "application/json",
+        "PayPal-Request-Id": `capture-${orderId}`,
+      },
     }
   );
   return data;
+}
+
+/** Asks PayPal to verify a webhook delivery's signature. */
+export async function verifyWebhookSignature(headers, event) {
+  const accessToken = await getPayPalAccessToken();
+  const { data } = await http.post(
+    "/v1/notifications/verify-webhook-signature",
+    {
+      auth_algo: headers["paypal-auth-algo"],
+      cert_url: headers["paypal-cert-url"],
+      transmission_id: headers["paypal-transmission-id"],
+      transmission_sig: headers["paypal-transmission-sig"],
+      transmission_time: headers["paypal-transmission-time"],
+      webhook_id: process.env.PAYPAL_WEBHOOK_ID,
+      webhook_event: event,
+    },
+    { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" } }
+  );
+  return data.verification_status === "SUCCESS";
 }

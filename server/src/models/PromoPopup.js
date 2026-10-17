@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 /**
  * The welcome popup that appears a few seconds after a visitor lands.
@@ -53,6 +54,9 @@ export const PROMO_POPUP_DEFAULTS = {
   successButtonLabel: 'Start shopping',
   alreadyBody: 'You’ve already claimed a welcome coupon — check your mailbox.',
 };
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+promoPopupSchema.plugin(mediaCleanupPlugin, { fields: ['image'] });
 
 const PromoPopup = mongoose.model('PromoPopup', promoPopupSchema);
 export default PromoPopup;

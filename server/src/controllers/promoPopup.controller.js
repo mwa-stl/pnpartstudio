@@ -33,7 +33,8 @@ export const getPromoPopup = async (_req, res) => {
     if (!doc) doc = await PromoPopup.create({ key: KEY, ...PROMO_POPUP_DEFAULTS });
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -48,10 +49,11 @@ export const updatePromoPopup = async (req, res) => {
     const doc = await PromoPopup.findOneAndUpdate(
       { key: KEY },
       { $set: update },
-      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+      { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

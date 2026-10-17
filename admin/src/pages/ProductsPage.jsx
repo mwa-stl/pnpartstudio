@@ -62,6 +62,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState("");
   const confirm = useConfirm();
+  const confirmOpen = !!confirm.props.open;
   const [form, setForm] = useState(EMPTY_PRODUCT);
   const [uploadingImgs, setUploadingImgs] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -79,7 +80,8 @@ export default function ProductsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(PRODUCTS_URL, { withCredentials: true });
+      // raw=1: the catalogue exactly as stored, so a live sale price is never saved into a product.
+      const res = await axios.get(PRODUCTS_URL, { withCredentials: true, params: { raw: 1 } });
       const items = Array.isArray(res.data?.items) ? res.data.items.map(mapProductFromApi) : [];
       setProducts(items);
     } catch (e) {
@@ -143,6 +145,7 @@ export default function ProductsPage() {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
+      if (confirmOpen) return; // the confirm dialog owns the keyboard
       if (e.key === "Escape") closeExpand();
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "ArrowRight") goNext();
@@ -150,7 +153,7 @@ export default function ProductsPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, active]);
+  }, [open, active, confirmOpen]);
 
   const handleFiles = (files) => {
     const list = Array.from(files || []);
@@ -310,6 +313,37 @@ export default function ProductsPage() {
       } catch (e) { console.error(e); toast.error("Failed to delete product"); }
     },
   });
+
+  // Removes one photo from a product straight from the gallery lightbox.
+  // Only the images field is sent; the PUT handler patches just what it gets.
+  const deleteGalleryImage = (product, idx) => {
+    const src = product.images?.[idx];
+    if (!src) return;
+    confirm.ask({
+      title: "Remove this image?",
+      description: "The photo is taken off this product and the shop right away. This cannot be undone.",
+      item: { label: `${product.title} — image ${idx + 1} of ${product.images.length}`, image: src },
+      onConfirm: async () => {
+        const next = product.images.filter((_, i) => i !== idx);
+        try {
+          await axios.put(`${PRODUCTS_URL}/${product.id}`, { images: next }, {
+            withCredentials: true, headers: { "Content-Type": "application/json" }
+          });
+          toast.success("Image removed");
+          if (next.length === 0) closeExpand();
+          else {
+            setActive({ ...product, images: next });
+            setSlide(Math.min(idx, next.length - 1));
+          }
+          await load();
+        } catch (e) {
+          console.error(e);
+          toast.error("Failed to remove image");
+          throw e;
+        }
+      },
+    });
+  };
 
   const firstUrl = (p) => {
     const arr = Array.isArray(p?.images) ? p.images : [];
@@ -491,10 +525,10 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         onClick={() => removeImageAt(idx)}
-                        className="absolute top-0 right-0 w-5 h-5 bg-vermillion-dark text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-vermillion-dark text-white flex items-center justify-center shadow hover:bg-ink transition-colors"
                         aria-label={`Remove image ${idx + 1}`}
                       >
-                        <X size={11} />
+                        <X size={12} />
                       </button>
                     </div>
                   ))}
@@ -660,6 +694,17 @@ export default function ProductsPage() {
                 className="w-full max-h-[62vh] object-contain"
                 onError={handleImgError}
               />
+              {active.images?.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => deleteGalleryImage(active, slide)}
+                  aria-label={`Remove image ${slide + 1}`}
+                  title="Remove this image"
+                  className="absolute top-3 right-3 w-9 h-9 rounded-full bg-vermillion-dark text-white flex items-center justify-center shadow hover:bg-ink transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              )}
               {active.images?.length > 1 && (
                 <>
                   <button onClick={goPrev} aria-label="Previous image"

@@ -27,6 +27,10 @@ const TrackOrderPage = () => {
   const [order, setOrder] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  // Orders placed before the switch to random references also need the
+  // checkout email; the server says so with { needEmail: true }.
+  const [needEmail, setNeedEmail] = useState(false);
+  const [email, setEmail] = useState("");
 
   const stepIndex = useMemo(() => {
     if (!order?.status) return -1;
@@ -40,7 +44,7 @@ const TrackOrderPage = () => {
     return (stepIndex / (DEFAULT_STEPS.length - 1)) * 100;
   }, [stepIndex]);
 
-  const lookup = React.useCallback(async (rawId) => {
+  const lookup = React.useCallback(async (rawId, rawEmail = "") => {
     const cleanId = rawId.trim();
     if (!cleanId) {
       toast.error("Please enter an order ID");
@@ -51,7 +55,10 @@ const TrackOrderPage = () => {
     setNotFound(false);
     try {
       const url = `${API_BASE}/api/orders/ref/${encodeURIComponent(cleanId)}`;
-      const { data } = await axios.get(url, { withCredentials: true });
+      const { data } = await axios.get(url, {
+        withCredentials: true,
+        params: rawEmail.trim() ? { email: rawEmail.trim() } : undefined
+      });
       if (!data?.order) {
         setNotFound(true);
         toast.error("We couldn’t find that order");
@@ -69,6 +76,11 @@ const TrackOrderPage = () => {
       });
       toast.success("Order found");
     } catch (err) {
+      if (err?.response?.data?.needEmail) {
+        setNeedEmail(true);
+        toast(err.response.data.error, { duration: 6000 });
+        return;
+      }
       setNotFound(true);
       toast.error(err?.response?.data?.message || "Unable to fetch that order");
     } finally {
@@ -85,7 +97,7 @@ const TrackOrderPage = () => {
 
   const onSubmit = (e) => {
     e.preventDefault();
-    lookup(orderId);
+    lookup(orderId, email);
   };
 
   const downloadInvoice = async () => {
@@ -93,7 +105,10 @@ const TrackOrderPage = () => {
     setDownloading(true);
     try {
       const url = `${API_BASE}/api/orders/ref/${encodeURIComponent(order.referenceId)}/invoice.pdf`;
-      const res = await axios.get(url, { responseType: "blob" });
+      const res = await axios.get(url, {
+        responseType: "blob",
+        params: email.trim() ? { email: email.trim() } : undefined
+      });
       const blobUrl = URL.createObjectURL(res.data);
       const a = document.createElement("a");
       a.href = blobUrl;
@@ -171,6 +186,21 @@ const TrackOrderPage = () => {
                     disabled={loading}
                   />
                 </div>
+                {needEmail && (
+                  <div className="flex-1">
+                    <label htmlFor="orderEmailInput" className="label-k">Email used at checkout</label>
+                    <input
+                      type="email"
+                      id="orderEmailInput"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="field-k"
+                      autoComplete="email"
+                      disabled={loading}
+                    />
+                  </div>
+                )}
                 <button type="submit" className="btn-k shrink-0" disabled={loading}>
                   <Search size={13} />
                   {loading ? "Checking…" : "Track"}

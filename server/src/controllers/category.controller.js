@@ -68,7 +68,7 @@ export async function updateCategory(req, res, next) {
     const doc = await Category.findByIdAndUpdate(
       req.params.id,
       { name, children: sanitizeNodes(req.body?.children) },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: 'Not found' });
     return res.json(doc);

@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useEffect, useReducer } from "react";
+import axios from "axios";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const initialState = {
   items: [],
@@ -40,6 +43,16 @@ const cartReducer = (state, action) => {
       };
     case "CLEAR_CART":
       return { ...state, items: [] };
+    // Prices saved in the browser go stale when a sale starts or ends; the
+    // server's current price (live sale included) replaces them.
+    case "SYNC_PRICES": {
+      const fresh = action.payload || {};
+      const apply = (it) => {
+        const f = fresh[it.id];
+        return f ? { ...it, price: f.price, salePrice: f.salePrice, sale: f.sale || null } : it;
+      };
+      return { ...state, items: state.items.map(apply), wishlist: state.wishlist.map(apply) };
+    }
     case "TOGGLE_CART":
       return { ...state, isOpen: !state.isOpen };
     case "CLOSE_CART":
@@ -89,6 +102,26 @@ export const CartProvider = ({ children }) => {
       localStorage.setItem("APP_CART_STATE", JSON.stringify({ items, wishlist }));
     } catch { /* storage full or unavailable cart still works in memory */ }
   }, [state]);
+
+  // Re-price whatever is saved, on load and whenever the tab comes back.
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      const ids = [...new Set([...state.items, ...state.wishlist].map((it) => it.id).filter(Boolean))];
+      if (!ids.length) return;
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/products/prices`, { params: { ids: ids.join(",") } });
+        if (!cancelled && data?.items) dispatch({ type: "SYNC_PRICES", payload: data.items });
+      } catch { /* offline or API down — keep the saved prices */ }
+    };
+    sync();
+    const onVisible = () => { if (document.visibilityState === "visible") sync(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; document.removeEventListener("visibilitychange", onVisible); };
+    // Only on mount: later cart edits do not need a re-price, and re-running
+    // on every change would loop through SYNC_PRICES.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalItems = state.items.reduce((sum, it) => sum + (it.quantity || 1), 0);
   const totalPrice = state.items.reduce((sum, it) => {

@@ -34,7 +34,8 @@ export const listPageHeroes = async (_req, res) => {
     const all = missing.length ? await PageHero.find({}) : existing;
     res.json({ items: all });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -48,7 +49,8 @@ export const getPageHero = async (req, res) => {
     if (!doc) doc = await PageHero.create({ key, ...PAGE_HERO_DEFAULTS[key] });
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -65,10 +67,11 @@ export const updatePageHero = async (req, res) => {
     const doc = await PageHero.findOneAndUpdate(
       { key },
       { $set: update, $setOnInsert: { key } },
-      { new: true, upsert: true, runValidators: true }
+      { returnDocument: 'after', upsert: true, runValidators: true }
     );
     res.json(doc);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

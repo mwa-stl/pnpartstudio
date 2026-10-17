@@ -2,14 +2,29 @@
 import nodemailer from 'nodemailer';
 import { processImage } from '../services/media.js';
 import { isStorageConfigured } from '../services/storage.js';
+import { escapeHtml, escapeHtmlMultiline, headerSafe } from '../lib/escape.js';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 export const submitOrder = async (req, res) => {
   try {
-    const { name, email, phone, artType, size, description, budget, deadline } = req.body;
+    const body = req.body || {};
+    const name = text(body.name, 120);
+    const email = text(body.email, 254);
+    const phone = text(body.phone, 30);
+    const artType = text(body.artType, 120);
+    const size = text(body.size, 120);
+    const description = text(body.description, 5000);
+    const budget = text(body.budget, 80);
+    const deadline = text(body.deadline, 80);
     const attachment = req.file;
 
     if (!name || !email || !artType || !size || !description) {
       return res.status(400).json({ message: 'Missing required fields.' });
+    }
+    if (!EMAIL_RE.test(email)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
     }
 
     const transporter = nodemailer.createTransport({
@@ -42,26 +57,26 @@ export const submitOrder = async (req, res) => {
 
     const html = `
       <h2>New Custom Art Commission Request</h2>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
-      <p><strong>Art Type:</strong> ${artType}</p>
-      <p><strong>Size:</strong> ${size}</p>
-      <p><strong>Budget:</strong> ${budget || 'Not specified'}</p>
-      <p><strong>Deadline:</strong> ${deadline || 'Not specified'}</p>
+      <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+      <p><strong>Phone:</strong> ${escapeHtml(phone) || 'Not provided'}</p>
+      <p><strong>Art Type:</strong> ${escapeHtml(artType)}</p>
+      <p><strong>Size:</strong> ${escapeHtml(size)}</p>
+      <p><strong>Budget:</strong> ${escapeHtml(budget) || 'Not specified'}</p>
+      <p><strong>Deadline:</strong> ${escapeHtml(deadline) || 'Not specified'}</p>
       <hr />
       <p><strong>Description:</strong></p>
-      <p>${(description || '').replace(/\n/g, '<br />')}</p>
+      <p>${escapeHtmlMultiline(description)}</p>
     `;
 
-    const mail = await transporter.sendMail({
-      from: `"${name}" <${process.env.EMAIL_USER}>`,
+    await transporter.sendMail({
+      from: `"${headerSafe(name)}" <${process.env.EMAIL_USER}>`,
       replyTo: email,
-      to: 'contact@codewithjay.in',
-      subject: `Custom Art Request  ${name}`,
+      to: process.env.CONTACT_TO || 'contact@codewithjay.in',
+      subject: `Custom Art Request  ${headerSafe(name)}`,
       html,
       attachments: attachment ? [{
-        filename: attachment.originalname,
+        filename: headerSafe(attachment.originalname, 100) || 'reference',
         content: attachment.buffer
       }] : [],
     });

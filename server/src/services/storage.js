@@ -48,6 +48,9 @@ const getBucket = () => {
   return bucket;
 };
 
+/** Test seam: swap in a fake bucket object. Not used by the app. */
+export const _setBucketForTests = (fake) => { bucket = fake; };
+
 /** True when the bucket is configured — lets routes fail loudly but early. */
 export const isStorageConfigured = () => Boolean(bucketName);
 
@@ -155,4 +158,17 @@ export const objectPathFromUrl = (url) => {
   if (at !== -1) return decodeURIComponent(url.slice(at + marker.length));
 
   return '';
+};
+
+/**
+ * Lists every object in the bucket (path, size, created time). Used for the
+ * storage overview and the unused-file sweep. Paged by the SDK's autoPaginate.
+ */
+export const listObjects = async () => {
+  const [files] = await getBucket().getFiles({ autoPaginate: true });
+  return files.map((f) => ({
+    path: f.name,
+    bytes: Number(f.metadata?.size) || 0,
+    created: f.metadata?.timeCreated || null,
+  }));
 };

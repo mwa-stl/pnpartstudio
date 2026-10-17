@@ -62,7 +62,8 @@ export const listProductReviews = async (req, res) => {
       distribution,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -92,7 +93,8 @@ export const summariseReviews = async (req, res) => {
     });
     res.json({ items });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -142,7 +144,8 @@ export const createReview = async (req, res) => {
     if (err?.code === 11000) {
       return res.status(409).json({ message: 'You have already reviewed this piece.' });
     }
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -167,7 +170,8 @@ export const listAllReviews = async (req, res) => {
 
     res.json({ items: items.map((d) => ({ ...d, avatarUrl: generateInitialsAvatar(d.email || d.name) })) });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -187,6 +191,7 @@ export const deleteReview = async (req, res) => {
 
     res.json({ success: true, message: 'Review deleted' });
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

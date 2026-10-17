@@ -62,12 +62,11 @@ const AdminRegister = () => {
 
     try {
       setSubmitting(true);
-      const { data } = await axios.post(
+      await axios.post(
         REGISTER_URL,
         { name: name.trim(), email: email.trim(), phone: phone.trim(), password },
         { withCredentials: true }
       );
-      if (data?.accessToken) sessionStorage.setItem("accessToken", data.accessToken);
       setFormSuccess("Admin account created. Redirecting…");
       toast.success("Admin created");
       setTimeout(() => navigate("/admin", { replace: true }), 800);

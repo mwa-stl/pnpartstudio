@@ -15,7 +15,8 @@ export const createHeroSlide = async (req, res) => {
     const slide = await HeroSlider.create({ image, alt, eyebrow, heading, sub, ctaLabel, ctaHref });
     res.status(201).json(slide);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -26,12 +27,13 @@ export const updateHeroSlide = async (req, res) => {
     const slide = await HeroSlider.findByIdAndUpdate(
       req.params.id,
       { image, alt, eyebrow, heading, sub, ctaLabel, ctaHref },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!slide) return res.status(404).json({ message: 'Slide not found' });
     res.json(slide);
   } catch (err) {
-    res.status(500).json({ message: err.message || 'Server error' });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 

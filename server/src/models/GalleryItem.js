@@ -1,5 +1,6 @@
 // src/models/GalleryItem.js
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 const GalleryItemSchema = new mongoose.Schema(
   {
@@ -35,5 +36,8 @@ const GalleryItemSchema = new mongoose.Schema(
 
 // Enable text search across key fields
 GalleryItemSchema.index({ title: 'text', description: 'text', medium: 'text' });
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+GalleryItemSchema.plugin(mediaCleanupPlugin, { fields: ['src', 'poster'] });
 
 export default mongoose.model('GalleryItem', GalleryItemSchema);

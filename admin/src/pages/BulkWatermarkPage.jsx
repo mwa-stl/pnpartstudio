@@ -24,7 +24,7 @@ export default function BulkWatermarkPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await axios.get(PRODUCTS_URL);
+        const res = await axios.get(PRODUCTS_URL, { params: { raw: 1 } });
         const items = Array.isArray(res.data?.items) ? res.data.items : [];
         setProducts(items.filter(p => Array.isArray(p.images) && p.images.length > 0));
       } catch {
@@ -84,11 +84,10 @@ export default function BulkWatermarkPage() {
           done++;
           setProgress({ done, total, current: product.title || product._id });
         }
-        const token = sessionStorage.getItem("accessToken");
         await axios.put(
           `${PRODUCTS_URL}/${product._id}`,
           { images: newUrls },
-          { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+          { withCredentials: true }
         );
       } catch (e) {
         errors.push(product.title || product._id);

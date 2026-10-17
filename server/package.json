@@ -8,9 +8,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "dev": "cross-env NODE_ENV=development node --watch server.js",
     "start": "node server.js",
-    "seed:orders": "node scripts/seed-orders.js"
+    "seed:orders": "node scripts/seed-orders.js",
+    "test": "node --test \"tests/**/*.test.js\""
   },
   "author": "",
   "license": "ISC",
@@ -20,31 +21,30 @@
   "dependencies": {
     "@dicebear/collection": "^9.4.3",
     "@dicebear/core": "^9.4.3",
-    "@google-cloud/storage": "^8.0.1",
-    "@paypal/checkout-server-sdk": "^1.0.3",
-    "axios": "^1.12.2",
-    "bcryptjs": "^3.0.2",
+    "@google-cloud/storage": "^8.4.0",
+    "axios": "^1.20.0",
+    "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "docx": "^9.7.1",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "express-rate-limit": "^8.1.0",
+    "cors": "^2.8.6",
+    "docx": "^9.12.0",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
     "ffmpeg-static": "^5.3.0",
     "ffprobe-static": "^3.1.0",
     "fluent-ffmpeg": "^2.1.3",
-    "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.18.1",
-    "morgan": "^1.10.1",
-    "multer": "^2.0.2",
-    "node-cron": "^4.2.1",
-    "nodemailer": "^9.0.5",
-    "pdfkit": "^0.19.1",
-    "sharp": "^0.35.3"
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.2",
+    "morgan": "^1.12.1",
+    "multer": "^2.4.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.1.2",
+    "pdfkit": "^0.20.2",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "cross-env": "^10.0.0",
-    "nodemon": "^3.1.10"
+    "cross-env": "^10.1.0",
+    "mongodb-memory-server": "^11.3.0"
   }
 }

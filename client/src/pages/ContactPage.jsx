@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, Facebook, Youtube, Globe, ArrowUpRight } from 'lucide-react';
+import { Globe, ArrowUpRight } from 'lucide-react';
+import { Instagram, Facebook, Youtube } from '../components/BrandIcons';
 import axios from 'axios';
 import Reveal, { RevealLines } from '../components/motion/Reveal';
 import ParallaxLayer from '../components/motion/ParallaxLayer';

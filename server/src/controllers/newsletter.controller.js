@@ -4,6 +4,7 @@ import NewsletterCampaign from "../models/NewsletterCampaign.js";
 import Coupon from "../models/Coupon.js";
 import { createTransport, renderNewsletter, sendCouponCodeMail } from "../lib/mailer.js";
 import cron from "node-cron";
+import crypto from "node:crypto";
 
 // CRON scheduler (for scheduled campaigns)
 const scheduledTasks = new Map();
@@ -92,7 +93,9 @@ export const listSubscribers = asyncHandler(async (_req, res) => {
 
 export const exportSubscribers = asyncHandler(async (_req, res) => {
   const items = await Subscriber.find().sort({ createdAt: -1 }).lean();
-  const rows = ["email,createdAt", ...items.map(i => `${i.email},${i.createdAt ? new Date(i.createdAt).toISOString() : ""}`)];
+  // A cell starting with = + - @ would run as a formula when opened in a spreadsheet.
+  const cell = (v) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
+  const rows = ["email,createdAt", ...items.map(i => `"${cell(String(i.email)).replace(/"/g, '""')}",${i.createdAt ? new Date(i.createdAt).toISOString() : ""}`)];
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", 'attachment; filename="subscribers.csv"');
   res.send(rows.join("\n"));
@@ -145,7 +148,7 @@ export const sendNowById = asyncHandler(async (req, res) => {
 export const scheduleById = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const schedule = req.body?.schedule;
-  const updated = await NewsletterCampaign.findByIdAndUpdate(id, { $set: { schedule, status: "scheduled" } }, { new: true }).lean();
+  const updated = await NewsletterCampaign.findByIdAndUpdate(id, { $set: { schedule, status: "scheduled" } }, { returnDocument: 'after' }).lean();
   if (!updated) return res.status(404).json({ message: "Not found" });
   await scheduleCampaign(updated);
   res.json({ id, status: "scheduled" });
@@ -155,7 +158,7 @@ export const scheduleById = asyncHandler(async (req, res) => {
 async function createUniqueCoupon(percent = 35) {
   let code, tries = 0;
   while (tries < 10) {
-    code = "PNPNEW" + (Math.floor(10000 + Math.random() * 90000));
+    code = "PNPNEW" + crypto.randomInt(100000, 1000000);
     if (!(await Coupon.exists({ code }))) {
       const doc = await Coupon.create({ code, percent, maxUses: 1, uses: 0, active: true });
       return doc;
@@ -196,6 +199,6 @@ export const claimCoupon = async (req, res) => {
     res.status(201).json({ ok: true, code: couponDoc.code });
   } catch (err) {
     console.error("claimCoupon error:", err);
-    res.status(500).json({ message: err.message || "Server Error" });
+    res.status(500).json({ message: "Server Error" });
   }
 };

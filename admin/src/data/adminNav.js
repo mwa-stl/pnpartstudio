@@ -21,6 +21,7 @@ export const NAV_GROUPS = [
     links: [
       { to: "/admin/orders", label: "Orders" },
       { to: "/admin/store-pickup-orders", label: "Store pickup" },
+      { to: "/admin/announcements", label: "Announcements & sales" },
       { to: "/admin/coupons", label: "Coupons" },
     ],
   },
@@ -40,6 +41,7 @@ export const NAV_GROUPS = [
     label: "Tools",
     links: [
       { to: "/admin/bulk-watermark", label: "Bulk watermark" },
+      { to: "/admin/storage", label: "Media storage" },
     ],
   },
 ];

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 const testimonialSchema = new mongoose.Schema({
   name:     { type: String, required: true, trim: true },
@@ -8,5 +9,8 @@ const testimonialSchema = new mongoose.Schema({
   imageUrl: { type: String, required: true, trim: true },
   createdAt:{ type: Date, default: Date.now }
 });
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+testimonialSchema.plugin(mediaCleanupPlugin, { fields: ['imageUrl'] });
 
 export default mongoose.model('Testimonial', testimonialSchema);

@@ -9,6 +9,7 @@
 export const CLIENT_ROUTES = [
   { value: '/', label: 'Home', group: 'Main' },
   { value: '/shop', label: 'Shop — all artwork', group: 'Main' },
+  { value: '/sale', label: 'Sale & offers', group: 'Main' },
   { value: '/gallery', label: 'Gallery', group: 'Main' },
   { value: '/art-classes', label: 'Art classes', group: 'Main' },
   { value: '/custom-order', label: 'Custom order / commissions', group: 'Main' },

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 /**
  * Masthead ("hero") content for the storefront's content pages, one document
@@ -109,6 +110,9 @@ export const PAGE_HERO_DEFAULTS = {
 };
 
 export const PAGE_HERO_KEYS = PAGE_KEYS;
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+pageHeroSchema.plugin(mediaCleanupPlugin, { fields: ['image'] });
 
 const PageHero = mongoose.model('PageHero', pageHeroSchema);
 export default PageHero;

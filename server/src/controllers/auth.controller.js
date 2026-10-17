@@ -6,24 +6,50 @@ const isProd = process.env.NODE_ENV === 'production';
 
 function signToken(user) {
   const payload = { id: user._id, role: user.role, email: user.email, name: user.name };
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '1d' });
 }
 
+/**
+ * The session lives ONLY in this httpOnly cookie. The token is never put in a
+ * response body, so page scripts (and therefore any injected script) cannot
+ * read it, and the console keeps nothing in sessionStorage or localStorage.
+ *
+ * SameSite: 'none' (production default) lets the console on one origin send
+ * the cookie to an API on another; set COOKIE_SAMESITE=lax or strict when both
+ * share a site (admin.example.com + api.example.com), which is safer still.
+ * Browsers only accept SameSite=None together with Secure.
+ */
+const SAME_SITE = ['lax', 'strict', 'none'].includes(String(process.env.COOKIE_SAMESITE).toLowerCase())
+  ? String(process.env.COOKIE_SAMESITE).toLowerCase()
+  : (isProd ? 'none' : 'lax');
+
+const cookieOptions = () => ({
+  httpOnly: true,
+  secure: isProd || SAME_SITE === 'none',
+  sameSite: SAME_SITE,
+  path: '/',
+});
+
 function setSessionCookie(res, token) {
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: isProd,                 // required if SameSite=None (cross-site)
-    sameSite: isProd ? 'none' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/',
-  });
+  res.cookie('token', token, { ...cookieOptions(), maxAge: 24 * 60 * 60 * 1000 });
 }
 
 const MIN_PASSWORD_LENGTH = 12;
+const MAX_PASSWORD_LENGTH = 200; // bcrypt only reads 72 bytes; this just bounds the work
+
+// Compared against when the email is unknown, so "no such user" takes as long
+// as "wrong password" and the response time does not reveal which emails exist.
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
+
+const asText = (v) => (typeof v === 'string' ? v : '');
 
 export async function registerAdmin(req, res, next) {
   try {
-    const { name, email, phone = '', password } = req.body || {};
+    const body = req.body || {};
+    const name = asText(body.name);
+    const email = asText(body.email);
+    const phone = asText(body.phone);
+    const password = asText(body.password);
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
@@ -36,7 +62,13 @@ export async function registerAdmin(req, res, next) {
       return res.status(403).json({ message: 'Only an existing admin can create new admin accounts' });
     }
 
-    if (String(password).length < MIN_PASSWORD_LENGTH) {
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      return res.status(400).json({ message: 'Password is too long' });
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({ message: 'Enter a valid email address' });
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
       return res.status(400).json({ message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
@@ -56,12 +88,10 @@ export async function registerAdmin(req, res, next) {
       role: 'admin',
     });
 
-    const accessToken = signToken(user);
-    setSessionCookie(res, accessToken);
+    setSessionCookie(res, signToken(user));
 
     return res.status(201).json({
       message: 'Admin account created',
-      accessToken,
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (err) {
@@ -74,27 +104,22 @@ export async function registerAdmin(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
+    const email = asText(req.body?.email);
+    const password = asText(req.body?.password);
+    if (!email || !password || password.length > MAX_PASSWORD_LENGTH) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
     const user = await User.findOne({ email: String(email).toLowerCase().trim() });
-    if (!user /* || user.role !== 'admin' */) {
+    const ok = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
+    if (!user || !ok) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const accessToken = signToken(user);
-    setSessionCookie(res, accessToken);
+    setSessionCookie(res, signToken(user));
 
     return res.status(200).json({
       message: 'Signed in',
-      accessToken,
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
     });
   } catch (err) {
@@ -103,12 +128,7 @@ export async function login(req, res, next) {
 }
 
 export function logout(req, res) {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
-    path: '/',
-  });
+  res.clearCookie('token', cookieOptions());
   return res.status(200).json({ message: 'Signed out' });
 }
 

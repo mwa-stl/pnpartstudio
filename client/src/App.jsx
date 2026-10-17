@@ -34,6 +34,8 @@ import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import StorePickupSuccessPage from "./pages/StorePickupSuccessPage";
 import BlogPage from "./pages/BlogPage";
 import BlogPostPage from "./pages/BlogPostPage";
+import SalePage from "./pages/SalePage";
+import AnnouncementsProvider from "./context/AnnouncementsProvider";
 import SmoothScroll from "./components/SmoothScroll";
 import GrainOverlay from "./components/motion/GrainOverlay";
 
@@ -72,6 +74,7 @@ const App = () => {
   return (
     <PayPalScriptProvider options={paypalOptions}>
       <CartProvider>
+        <AnnouncementsProvider>
         <Router>
           <SmoothScroll>
             <ScrollToTop />
@@ -84,6 +87,8 @@ const App = () => {
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/shop" element={<ShopPage />} />
                 <Route path="/shop/category/:category" element={<ShopPage />} />
+                <Route path="/sale" element={<SalePage />} />
+                <Route path="/sale/:slug" element={<SalePage />} />
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
@@ -126,6 +131,7 @@ const App = () => {
             }}
           />
         </Router>
+        </AnnouncementsProvider>
       </CartProvider>
     </PayPalScriptProvider>
   );

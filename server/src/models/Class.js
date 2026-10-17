@@ -1,5 +1,6 @@
 // models/Class.js
 import mongoose from 'mongoose';
+import { mediaCleanupPlugin } from '../services/mediaCleanup.js';
 
 const MODES = ['Online', 'Studio'];
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
@@ -63,6 +64,9 @@ const classSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Files this record stops referencing (replaced, removed, or the record deleted) are removed from the bucket.
+classSchema.plugin(mediaCleanupPlugin, { fields: ['cover', 'gallery'] });
 
 export const ClassModel = mongoose.model('Class', classSchema);
 export const CLASS_CONSTANTS = { MODES, LEVELS };

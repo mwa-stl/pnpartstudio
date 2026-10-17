@@ -1,4 +1,5 @@
 import { processImage, processVideo, IMAGE_MIME, VIDEO_MIME } from '../services/media.js';
+import { scanStorage, cleanOrphans } from '../services/mediaCleanup.js';
 import {
   deleteObject, isStorageConfigured, objectPathFromUrl,
   describeStorageError, hasExplicitCredentials,
@@ -7,7 +8,7 @@ import {
 /** Only these folders may be written to — the client cannot invent a path. */
 const FOLDERS = new Set([
   'products', 'gallery', 'classes', 'hero', 'testimonials', 'artist', 'pages', 'popup',
-  'newsletters', 'misc',
+  'newsletters', 'announcements', 'misc',
 ]);
 
 /**
@@ -127,4 +128,29 @@ export const storageStatus = (_req, res) => {
     bucket: process.env.GCP_BUCKET_NAME || '',
     publicBaseUrl: process.env.GCS_PUBLIC_BASE_URL || '',
   });
+};
+
+/**
+ * GET /api/media/usage — admin only.
+ * Bucket size, and the files no record references (older than a day, so a
+ * form someone is still filling in is never caught).
+ */
+export const storageUsage = async (_req, res) => {
+  try {
+    if (!isStorageConfigured()) return notConfigured(res);
+    const { orphanPaths, ...summary } = await scanStorage();
+    res.json(summary);
+  } catch (err) {
+    res.status(500).json({ message: describeStorageError(err) });
+  }
+};
+
+/** POST /api/media/cleanup — admin only. Deletes every unreferenced file found by the scan. */
+export const storageCleanup = async (_req, res) => {
+  try {
+    if (!isStorageConfigured()) return notConfigured(res);
+    res.json(await cleanOrphans());
+  } catch (err) {
+    res.status(500).json({ message: describeStorageError(err) });
+  }
 };
