@@ -8,7 +8,7 @@ import ConfirmDialog from "../components/ui/ConfirmDialog.jsx";
 import useConfirm from "../hooks/useConfirm.js";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const TESTIMONIALS_URL = `${API_BASE}/api/testimonials`;
 
 const blank = { name: '', city: '', rating: '5', imageUrl: '', review: '' };

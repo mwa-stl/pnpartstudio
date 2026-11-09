@@ -7,7 +7,7 @@ import { Trash2, RefreshCw, Store, Phone, Mail } from "lucide-react";
 import { toast } from "react-toastify";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const PICKUP_URL = `${API_BASE}/api/store-pickup-orders`;
 
 const STATUS_OPTIONS = ["Pending", "Fulfilled", "Cancelled"];

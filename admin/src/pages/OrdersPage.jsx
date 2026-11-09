@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 import StatTile from "../components/StatTile.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const ORDERS_URL = `${API_BASE}/api/orders`;
 const PAGE_SIZE = 15;
 
@@ -114,7 +114,7 @@ const OrdersPage = () => {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(ORDERS_URL, { withCredentials: true });
+      const res = await axios.get(ORDERS_URL, { withCredentials: false });
       const arr = Array.isArray(res.data?.items)
         ? [...res.data.items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         : [];
@@ -192,7 +192,7 @@ const OrdersPage = () => {
       const { data } = await axios.patch(
         `${ORDERS_URL}/${id}`,
         { status: code },
-        { withCredentials: true }
+        { withCredentials: false }
       );
       const finalCode = data?.status ? normalizeStatusCode(data.status) : code;
       setItems(prev => prev.map(o => (o._id === id ? { ...o, status: finalCode } : o)));
@@ -208,7 +208,7 @@ const OrdersPage = () => {
   const downloadInvoice = async (order, format) => {
     try {
       const res = await axios.get(`${ORDERS_URL}/${order._id}/invoice.${format}`, {
-        withCredentials: true,
+        withCredentials: false,
         responseType: "blob",
       });
       const url = URL.createObjectURL(res.data);

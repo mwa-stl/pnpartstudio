@@ -1,15 +1,16 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { setToken } from "../api/axios.js";
 import { Eye, EyeOff, ArrowUpRight } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const REGISTER_URL = `${API_BASE}/api/auth/admin/register`;
 const MIN_PASSWORD = 12;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 // Rough strength signal not a substitute for the server's own policy,
 // just immediate feedback while typing.
@@ -62,11 +63,11 @@ const AdminRegister = () => {
 
     try {
       setSubmitting(true);
-      await axios.post(
+      const { data } = await axios.post(
         REGISTER_URL,
-        { name: name.trim(), email: email.trim(), phone: phone.trim(), password },
-        { withCredentials: true }
+        { name: name.trim(), email: email.trim(), phone: phone.trim(), password }
       );
+      if (data?.token) setToken(data.token);
       setFormSuccess("Admin account created. Redirecting…");
       toast.success("Admin created");
       setTimeout(() => navigate("/admin", { replace: true }), 800);

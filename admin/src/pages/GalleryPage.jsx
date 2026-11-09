@@ -11,10 +11,10 @@ import useConfirm from "../hooks/useConfirm.js";
 import { toast } from "react-toastify";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const GALLERY_URL = `${API_BASE}/api/gallery`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const isVideoFile = (file) => Boolean(file?.type?.startsWith("video/"));
 
@@ -156,7 +156,7 @@ const GalleryPage = () => {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(GALLERY_URL, { withCredentials: true });
+      const res = await axios.get(GALLERY_URL, { withCredentials: false });
       setItems(Array.isArray(res.data?.items) ? res.data.items : []);
     } catch (e) {
       console.error(e);
@@ -198,7 +198,7 @@ const GalleryPage = () => {
       let res;
       try {
         res = await axios.post(GALLERY_URL, { items: [item] }, {
-          headers: { "Content-Type": "application/json" }, withCredentials: true,
+          headers: { "Content-Type": "application/json" }, withCredentials: false,
         });
       } catch (err) {
         // Older API shape fallback
@@ -209,7 +209,7 @@ const GalleryPage = () => {
               title: item.title, category: item.category, year: item.year,
               medium: item.medium, description: item.description, tags: item.tags,
             },
-          }, { headers: { "Content-Type": "application/json" }, withCredentials: true });
+          }, { headers: { "Content-Type": "application/json" }, withCredentials: false });
         } else throw err;
       }
 
@@ -275,7 +275,7 @@ const GalleryPage = () => {
       }
 
       const { data } = await axios.patch(`${GALLERY_URL}/${editItem._id}`, body, {
-        headers: { "Content-Type": "application/json" }, withCredentials: true,
+        headers: { "Content-Type": "application/json" }, withCredentials: false,
       });
 
       setItems((arr) => arr.map((g) => (String(g._id) === String(editItem._id) ? { ...g, ...data } : g)));
@@ -306,7 +306,7 @@ const GalleryPage = () => {
     },
     onConfirm: async () => {
       try {
-        await axios.delete(`${GALLERY_URL}/${encodeURIComponent(item._id)}`, { withCredentials: true });
+        await axios.delete(`${GALLERY_URL}/${encodeURIComponent(item._id)}`, { withCredentials: false });
         setItems((arr) => arr.filter((g) => String(g._id) !== String(item._id)));
         toast.success("Removed");
       } catch (e) {

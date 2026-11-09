@@ -24,27 +24,6 @@ export function sanitizeBody(req, _res, next) {
   next();
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-/**
- * CSRF guard for cookie sessions. The session cookie is SameSite=None in
- * production (the console lives on another origin), so the browser will send
- * it on a cross-site request. A state-changing request that authenticates by
- * cookie alone must therefore come from an allowed origin. Requests carrying
- * an Authorization header are immune — a foreign page cannot set one — so
- * they pass untouched.
- */
-export function csrfOriginGuard(allowedOrigins) {
-  const allowed = new Set(allowedOrigins);
-  return (req, res, next) => {
-    if (SAFE_METHODS.has(req.method)) return next();
-    if (!req.cookies?.token || req.headers.authorization) return next();
-    const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer, 'http://x').origin : '');
-    if (origin && allowed.has(origin)) return next();
-    return res.status(403).json({ message: 'Cross-site request blocked' });
-  };
-}
-
 const limiter = (windowMs, limit, message) =>
   rateLimit({
     windowMs,

@@ -7,44 +7,40 @@ let h;
 before(async () => { h = await startHarness(); });
 after(() => h.stop());
 
-/** fetch that keeps cookies, so a "browser session" can be simulated. */
-const raw = async (method, path, body, { cookie, origin = ORIGIN } = {}) => {
+/** fetch helper; `token` is sent as a Bearer header, the way the console does. */
+const raw = async (method, path, body, { token, origin = ORIGIN } = {}) => {
   const r = await fetch(h.base + path, {
     method,
-    headers: { 'content-type': 'application/json', ...(origin && { origin }), ...(cookie && { cookie }) },
+    headers: {
+      'content-type': 'application/json',
+      ...(origin && { origin }),
+      ...(token && { authorization: `Bearer ${token}` }),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const setCookie = r.headers.getSetCookie();
-  return { status: r.status, json: await r.json().catch(() => ({})), setCookie, headers: r.headers };
+  return { status: r.status, json: await r.json().catch(() => ({})), setCookie: r.headers.getSetCookie(), headers: r.headers };
 };
-const tokenCookie = (setCookie) => setCookie.find((c) => c.startsWith('token='));
 
 const CREDS = { name: 'Admin', email: 'admin@example.com', password: 'correct-horse-battery' };
 
-test('the first admin registers; the session is an httpOnly cookie and no token is in the body', async () => {
+test('the first admin registers and receives a Bearer token; no cookie is set', async () => {
   const r = await raw('POST', '/api/auth/admin/register', CREDS);
   assert.equal(r.status, 201);
-  assert.ok(!('accessToken' in r.json), 'the token must never be in a response body');
-  assert.ok(!JSON.stringify(r.json).includes('eyJ'), 'no JWT anywhere in the body');
-  const cookie = tokenCookie(r.setCookie);
-  assert.ok(cookie, 'a session cookie is set');
-  assert.match(cookie, /HttpOnly/i);
-  assert.match(cookie, /Path=\//i);
+  assert.match(r.json.token, /^eyJ/);
+  assert.equal(r.setCookie.length, 0, 'the API sets no cookies');
 });
 
-test('login sets the same kind of cookie, and the cookie alone authenticates', async () => {
+test('login returns a token that alone authenticates', async () => {
   const login = await raw('POST', '/api/auth/login', { email: CREDS.email, password: CREDS.password });
   assert.equal(login.status, 200);
-  assert.ok(!('accessToken' in login.json));
-  const cookie = tokenCookie(login.setCookie);
-  assert.match(cookie, /HttpOnly/i);
-  const session = cookie.split(';')[0];
+  assert.equal(login.setCookie.length, 0);
 
-  const me = await raw('GET', '/api/auth/me', null, { cookie: session });
+  const me = await raw('GET', '/api/auth/me', null, { token: login.json.token });
   assert.equal(me.status, 200);
   assert.equal(me.json.user.email, CREDS.email);
 
-  assert.equal((await raw('GET', '/api/auth/me')).status, 401, 'no cookie, no session');
+  assert.equal((await raw('GET', '/api/auth/me')).status, 401, 'no token, no session');
+  assert.equal((await raw('GET', '/api/auth/me', null, { token: 'garbage' })).status, 401);
 });
 
 test('wrong credentials give one generic message', async () => {
@@ -55,25 +51,16 @@ test('wrong credentials give one generic message', async () => {
   assert.equal(wrongPw.json.message, unknown.json.message);
 });
 
-test('writes made with the session cookie must come from an allowed origin', async () => {
+test('admin writes work with the token and are refused without it', async () => {
   const login = await raw('POST', '/api/auth/login', { email: CREDS.email, password: CREDS.password });
-  const session = tokenCookie(login.setCookie).split(';')[0];
   const body = { title: 'Sale', items: [] };
-
-  const evil = await raw('POST', '/api/announcements', body, { cookie: session, origin: 'https://evil.example' });
-  assert.equal(evil.status, 403, 'a cross-site page cannot ride the cookie');
-  const none = await raw('POST', '/api/announcements', body, { cookie: session, origin: null });
-  assert.equal(none.status, 403);
-  const ok = await raw('POST', '/api/announcements', body, { cookie: session });
-  assert.equal(ok.status, 201);
+  assert.equal((await raw('POST', '/api/announcements', body)).status, 401);
+  assert.equal((await raw('POST', '/api/announcements', body, { token: login.json.token })).status, 201);
 });
 
-test('logout clears the cookie', async () => {
+test('logout succeeds', async () => {
   const r = await raw('POST', '/api/auth/logout', {});
   assert.equal(r.status, 200);
-  const cleared = tokenCookie(r.setCookie);
-  assert.ok(cleared, 'the cookie is explicitly expired');
-  assert.match(cleared, /Expires=Thu, 01 Jan 1970|Max-Age=0/i);
 });
 
 test('a second admin cannot self-register without an admin session', async () => {

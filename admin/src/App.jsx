@@ -23,7 +23,7 @@ import BulkWatermarkPage from "./pages/BulkWatermarkPage.jsx";
 import AnnouncementsPage from "./pages/AnnouncementsPage.jsx";
 import StoragePage from "./pages/StoragePage.jsx";
 
-const ME_URL = `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/auth/me`;
+const ME_URL = `${import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "")}/api/auth/me`;
 
 /**
  * Gate for the console. The session is an httpOnly cookie the page cannot see,
@@ -35,7 +35,7 @@ function RequireAdmin() {
 
   useEffect(() => {
     let cancelled = false;
-    axios.get(ME_URL, { withCredentials: true })
+    axios.get(ME_URL, { withCredentials: false })
       .then(() => { if (!cancelled) setState("ok"); })
       .catch(() => { if (!cancelled) setState("anonymous"); });
     return () => { cancelled = true; };

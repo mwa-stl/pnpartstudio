@@ -16,7 +16,7 @@ const ratingAccent = (rating) => {
   return "var(--color-rule-strong)";
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const REVIEWS_URL = `${API_BASE}/api/reviews`;
 // The storefront is a separate origin from this console, so a bare
 // "/product-details?..." href would resolve against the admin app and 404.

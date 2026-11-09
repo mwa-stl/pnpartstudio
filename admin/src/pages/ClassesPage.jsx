@@ -12,10 +12,10 @@ import SectionEyebrow from "../components/SectionEyebrow.jsx";
 import FloatingSaveBar from "../components/FloatingSaveBar.jsx";
 import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const CLASSES_URL = `${API_BASE}/api/classes`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const levels = ["Beginner", "Intermediate", "Advanced"];
 const modes = ["Online", "Studio"];
@@ -114,7 +114,7 @@ const ClassesPage = () => {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(CLASSES_URL, { withCredentials: true });
+      const res = await axios.get(CLASSES_URL, { withCredentials: false });
       const list = Array.isArray(res.data?.items) ? res.data.items.map(mapClassFromApi) : [];
       setItems(list);
     } catch (e) {
@@ -220,14 +220,14 @@ const ClassesPage = () => {
       };
       if (editingId) {
         const res = await axios.put(`${CLASSES_URL}/${editingId}`, payload, {
-          withCredentials: true, headers: { "Content-Type": "application/json" }
+          withCredentials: false, headers: { "Content-Type": "application/json" }
         });
         const updated = mapClassFromApi(res.data);
         setItems((arr) => arr.map((it) => (it.id === editingId ? updated : it)));
         toast.success("Class updated");
       } else {
         const res = await axios.post(CLASSES_URL, payload, {
-          withCredentials: true, headers: { "Content-Type": "application/json" }
+          withCredentials: false, headers: { "Content-Type": "application/json" }
         });
         setItems((arr) => [mapClassFromApi(res.data), ...arr]);
         toast.success("Class created");
@@ -265,7 +265,7 @@ const ClassesPage = () => {
     },
     onConfirm: async () => {
       try {
-        await axios.delete(`${CLASSES_URL}/${item.id}`, { withCredentials: true });
+        await axios.delete(`${CLASSES_URL}/${item.id}`, { withCredentials: false });
         setItems((arr) => arr.filter((c) => c.id !== item.id));
         if (editingId === item.id) resetForm();
         toast.success("Class deleted");

@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import { startHarness } from './helpers/harness.js';
 import { escapeHtml, headerSafe } from '../src/lib/escape.js';
 
-let h; let express; let cookieParser; let guardApp; let guardBase; let guardServer;
+let h; let express; let guardApp; let guardBase; let guardServer;
 
 before(async () => {
   h = await startHarness();
   ({ default: express } = await import('express'));
-  ({ default: cookieParser } = await import('cookie-parser'));
-  const { sanitizeBody, csrfOriginGuard } = await import('../src/middleware/security.js');
+  const { sanitizeBody } = await import('../src/middleware/security.js');
   const { authenticateJWT } = await import('../src/middleware/auth.js');
 
   guardApp = express();
-  guardApp.use(express.json(), cookieParser(), sanitizeBody, csrfOriginGuard(['https://admin.example']));
+  guardApp.use(express.json(), sanitizeBody);
   guardApp.post('/echo', (req, res) => res.json(req.body));
   guardApp.post('/secure', authenticateJWT, (_req, res) => res.json({ ok: true }));
   guardServer = guardApp.listen(0);
@@ -38,13 +37,6 @@ test('only a valid admin JWT passes: HS256, admin role', async () => {
   const unsigned = `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from('{"role":"admin"}').toString('base64url')}.`;
   assert.equal((await post('/secure', {}, bearer(unsigned))).status, 401, 'alg:none must be refused');
   assert.equal((await post('/secure', {})).status, 401);
-});
-
-test('a cookie-authenticated write must come from an allowed origin (CSRF)', async () => {
-  const cookie = `token=${h.sign('admin')}`;
-  assert.equal((await post('/secure', {}, { cookie })).status, 403);
-  assert.equal((await post('/secure', {}, { cookie, origin: 'https://evil.example' })).status, 403);
-  assert.equal((await post('/secure', {}, { cookie, origin: 'https://admin.example' })).status, 200);
 });
 
 test('HTML and header injection helpers neutralise hostile input', () => {

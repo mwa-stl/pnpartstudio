@@ -11,12 +11,12 @@ import SectionEyebrow from "../components/SectionEyebrow.jsx";
 import useConfirm from "../hooks/useConfirm.js";
 import { uploadImage, formatBytes } from "../api/media.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const CLIENT_BASE = (import.meta.env.VITE_CLIENT_URL || "").replace(/\/$/, "");
 const URL_ANNOUNCEMENTS = `${API_BASE}/api/announcements`;
 const URL_PRODUCTS = `${API_BASE}/api/products`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const fmtUSD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 

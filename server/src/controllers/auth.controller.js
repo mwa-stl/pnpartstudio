@@ -9,31 +9,6 @@ function signToken(user) {
   return jwt.sign(payload, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '1d' });
 }
 
-/**
- * The session lives ONLY in this httpOnly cookie. The token is never put in a
- * response body, so page scripts (and therefore any injected script) cannot
- * read it, and the console keeps nothing in sessionStorage or localStorage.
- *
- * SameSite: 'none' (production default) lets the console on one origin send
- * the cookie to an API on another; set COOKIE_SAMESITE=lax or strict when both
- * share a site (admin.example.com + api.example.com), which is safer still.
- * Browsers only accept SameSite=None together with Secure.
- */
-const SAME_SITE = ['lax', 'strict', 'none'].includes(String(process.env.COOKIE_SAMESITE).toLowerCase())
-  ? String(process.env.COOKIE_SAMESITE).toLowerCase()
-  : (isProd ? 'none' : 'lax');
-
-const cookieOptions = () => ({
-  httpOnly: true,
-  secure: isProd || SAME_SITE === 'none',
-  sameSite: SAME_SITE,
-  path: '/',
-});
-
-function setSessionCookie(res, token) {
-  res.cookie('token', token, { ...cookieOptions(), maxAge: 24 * 60 * 60 * 1000 });
-}
-
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 200; // bcrypt only reads 72 bytes; this just bounds the work
 
@@ -88,10 +63,9 @@ export async function registerAdmin(req, res, next) {
       role: 'admin',
     });
 
-    setSessionCookie(res, signToken(user));
-
     return res.status(201).json({
       message: 'Admin account created',
+      token: signToken(user),
       user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
   } catch (err) {
@@ -116,10 +90,9 @@ export async function login(req, res, next) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    setSessionCookie(res, signToken(user));
-
     return res.status(200).json({
       message: 'Signed in',
+      token: signToken(user),
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
     });
   } catch (err) {
@@ -128,7 +101,7 @@ export async function login(req, res, next) {
 }
 
 export function logout(req, res) {
-  res.clearCookie('token', cookieOptions());
+  // Stateless Bearer tokens: the console discards its copy; nothing to clear server-side.
   return res.status(200).json({ message: 'Signed out' });
 }
 

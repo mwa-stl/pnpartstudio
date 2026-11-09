@@ -6,7 +6,7 @@ const verify = (token) => jwt.verify(token, process.env.JWT_SECRET, { algorithms
 function readToken(req) {
   const auth = req.headers.authorization || '';
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  return req.cookies?.token || bearer;
+  return bearer;
 }
 
 /**

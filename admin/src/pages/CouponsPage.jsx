@@ -6,10 +6,10 @@ import useConfirm from "../hooks/useConfirm.js";
 import { TicketPercent, RefreshCw, Pencil, Trash2, Power, PowerOff, X, Plus } from "lucide-react";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const LIST_URL = `${API_BASE}/api/coupons`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const emptyEdit = { code: "", percent: 10, maxUses: 0, expiresAt: "", active: true };
 
@@ -31,7 +31,7 @@ export default function CouponsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(LIST_URL, { withCredentials: true });
+      const { data } = await axios.get(LIST_URL, { withCredentials: false });
       setList(Array.isArray(data?.items) ? data.items : []);
     } catch {
       toast.error("Failed to load coupons");
@@ -60,7 +60,7 @@ export default function CouponsPage() {
         maxUses: Number(maxUses) || 0,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null
       };
-      const { data } = await axios.post(LIST_URL, payload, { withCredentials: true });
+      const { data } = await axios.post(LIST_URL, payload, { withCredentials: false });
       toast.success(`Coupon ${data?.code} created`);
       setCode(""); setPercent(10); setMaxUses(0); setExpiresAt("");
       load();
@@ -73,7 +73,7 @@ export default function CouponsPage() {
 
   const toggleActive = async (id, next) => {
     try {
-      await axios.patch(`${LIST_URL}/${id}/status`, { active: next }, { withCredentials: true });
+      await axios.patch(`${LIST_URL}/${id}/status`, { active: next }, { withCredentials: false });
       toast.success(`Coupon ${next ? "activated" : "deactivated"}`);
       load();
     } catch {
@@ -93,7 +93,7 @@ export default function CouponsPage() {
     },
     onConfirm: async () => {
       try {
-        await axios.delete(`${LIST_URL}/${coupon._id}`, { withCredentials: true });
+        await axios.delete(`${LIST_URL}/${coupon._id}`, { withCredentials: false });
         toast.success("Coupon deleted");
         load();
       } catch {
@@ -122,7 +122,7 @@ export default function CouponsPage() {
         maxUses: Number(editData.maxUses) || 0,
         expiresAt: editData.expiresAt ? new Date(editData.expiresAt).toISOString() : null,
         active: !!editData.active
-      }, { withCredentials: true });
+      }, { withCredentials: false });
       toast.success("Coupon updated");
       setEditing(null);
       load();

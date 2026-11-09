@@ -14,9 +14,9 @@ import { WatermarkPositionModal } from "../components/WatermarkModal.jsx";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 import { getCategories } from "../api/categories.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const PRODUCTS_URL = `${API_BASE}/api/products`;
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const fmtUSD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -81,7 +81,7 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       // raw=1: the catalogue exactly as stored, so a live sale price is never saved into a product.
-      const res = await axios.get(PRODUCTS_URL, { withCredentials: true, params: { raw: 1 } });
+      const res = await axios.get(PRODUCTS_URL, { withCredentials: false, params: { raw: 1 } });
       const items = Array.isArray(res.data?.items) ? res.data.items.map(mapProductFromApi) : [];
       setProducts(items);
     } catch (e) {
@@ -260,12 +260,12 @@ export default function ProductsPage() {
       await refetchAfter(async () => {
         if (editingId) {
           await axios.put(`${PRODUCTS_URL}/${editingId}`, payload, {
-            withCredentials: true, headers: { "Content-Type": "application/json" }
+            withCredentials: false, headers: { "Content-Type": "application/json" }
           });
           toast.success("Product updated");
         } else {
           await axios.post(PRODUCTS_URL, payload, {
-            withCredentials: true, headers: { "Content-Type": "application/json" }
+            withCredentials: false, headers: { "Content-Type": "application/json" }
           });
           toast.success("Product created");
         }
@@ -306,7 +306,7 @@ export default function ProductsPage() {
     onConfirm: async () => {
       try {
         await refetchAfter(async () => {
-          await axios.delete(`${PRODUCTS_URL}/${p.id}`, { withCredentials: true });
+          await axios.delete(`${PRODUCTS_URL}/${p.id}`, { withCredentials: false });
           toast.success("Product deleted");
         });
         if (editingId === p.id) resetForm();
@@ -327,7 +327,7 @@ export default function ProductsPage() {
         const next = product.images.filter((_, i) => i !== idx);
         try {
           await axios.put(`${PRODUCTS_URL}/${product.id}`, { images: next }, {
-            withCredentials: true, headers: { "Content-Type": "application/json" }
+            withCredentials: false, headers: { "Content-Type": "application/json" }
           });
           toast.success("Image removed");
           if (next.length === 0) closeExpand();

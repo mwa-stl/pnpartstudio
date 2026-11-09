@@ -6,10 +6,10 @@ import { applyWatermark, uploadWatermarked, urlToFile } from "../utils/watermark
 import { WatermarkPositionModal } from "../components/WatermarkModal.jsx";
 import SectionEyebrow from "../components/SectionEyebrow.jsx";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const PRODUCTS_URL = `${API_BASE}/api/products`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 export default function BulkWatermarkPage() {
   const [products, setProducts] = useState([]);
@@ -87,7 +87,7 @@ export default function BulkWatermarkPage() {
         await axios.put(
           `${PRODUCTS_URL}/${product._id}`,
           { images: newUrls },
-          { withCredentials: true }
+          { withCredentials: false }
         );
       } catch (e) {
         errors.push(product.title || product._id);

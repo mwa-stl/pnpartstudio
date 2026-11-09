@@ -10,11 +10,11 @@ import SectionEyebrow from "../components/SectionEyebrow.jsx";
 import ImageDropzone from "../components/ui/ImageDropzone.jsx";
 import { uploadImage } from "../api/media.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const SUBS_URL = `${API_BASE}/api/newsletters/subscribers`;
 const CAMP_URL = `${API_BASE}/api/newsletters/campaigns`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const PAGE_SIZE = 10;
 
@@ -83,7 +83,7 @@ const NewslettersPage = () => {
     setConfirmSend(false);
     setSending(true);
     try {
-      const { data } = await axios.post(CAMP_URL, buildPayload({ type: "now" }), { withCredentials: true });
+      const { data } = await axios.post(CAMP_URL, buildPayload({ type: "now" }), { withCredentials: false });
       toast.success(`Newsletter sent to ${data?.sent || 0} subscriber${data?.sent === 1 ? "" : "s"}`);
     } catch (e) {
       toast.error(e?.response?.data?.message || "Failed to send newsletter");
@@ -95,7 +95,7 @@ const NewslettersPage = () => {
   const scheduleCampaign = async () => {
     if (!subject.trim()) { toast.warning("Please enter a subject"); return; }
     try {
-      const { data } = await axios.post(CAMP_URL, buildPayload(), { withCredentials: true });
+      const { data } = await axios.post(CAMP_URL, buildPayload(), { withCredentials: false });
       toast.success(`Campaign ${data?.status === "scheduled" ? "scheduled" : "saved"}`);
     } catch (e) {
       toast.error(e?.response?.data?.message || "Failed to schedule campaign");

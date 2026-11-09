@@ -2,12 +2,13 @@ import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { LogOut, X } from "lucide-react";
 import axios from "axios";
+import { setToken } from "../api/axios.js";
 import { toast } from "react-toastify";
 import { NUMBERED_GROUPS } from "../data/adminNav.js";
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const LOGOUT_URL = `${API_BASE}/api/auth/logout`;
 
 const linkClass = ({ isActive }) =>
@@ -22,12 +23,12 @@ const AdminSidebar = ({ open, onClose }) => {
 
   const handleLogout = async () => {
     try {
-      // The server clears the httpOnly session cookie; there is nothing to clear locally.
-      await axios.post(LOGOUT_URL, {}, { withCredentials: true });
-      toast.success("Logged out");
+      await axios.post(LOGOUT_URL, {});
     } catch {
-      toast.error("Could not reach the server to sign out. Close the tab and try again.");
+      // Stateless token: signing out only needs the local copy discarded.
     } finally {
+      toast.success("Logged out");
+      setToken("");
       setTimeout(() => navigate("/admin/login", { replace: true }), 350);
     }
   };

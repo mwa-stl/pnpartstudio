@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Private, transactional or per-visitor pages: no value in search results.
+Disallow: /cart
+Disallow: /checkout
+Disallow: /wishlist
+Disallow: /order/
+Disallow: /store-pickup-success
+Disallow: /track-order
+
+Sitemap: https://www.pnpartstudio.com/sitemap.xml

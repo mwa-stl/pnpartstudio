@@ -7,11 +7,11 @@ import SectionEyebrow from "../components/SectionEyebrow.jsx";
 import useConfirm from "../hooks/useConfirm.js";
 import { formatBytes } from "../api/media.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:4000" : "");
 const USAGE_URL = `${API_BASE}/api/media/usage`;
 const CLEANUP_URL = `${API_BASE}/api/media/cleanup`;
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false;
 
 const Stat = ({ label, value, sub, warn }) => (
   <div className="panel p-5">

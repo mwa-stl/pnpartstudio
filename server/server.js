@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import { connectDB } from './src/config/db.js';
@@ -10,7 +9,7 @@ import routes from './src/routes/index.js';
 import { notFound, errorHandler } from './src/middleware/error.js';
 import { isStorageConfigured } from './src/services/storage.js';
 import { corsOrigins } from './src/config/origins.js';
-import { sanitizeBody, csrfOriginGuard } from './src/middleware/security.js';
+import { sanitizeBody } from './src/middleware/security.js';
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -26,7 +25,6 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 const corsOptions = {
   origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
@@ -46,9 +44,7 @@ app.use(morgan(isProd ? 'combined' : 'dev'));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '100kb' }));
-app.use(cookieParser());
 app.use(sanitizeBody);
-app.use('/api', csrfOriginGuard(corsOrigins));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

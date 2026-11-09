@@ -68,16 +68,13 @@ export async function startHarness({ cors = 'https://www.pnpartstudio.com' } = {
   const { default: mongoose } = await import('mongoose');
   await mongoose.connect(mongo.getUri(), { dbName: 'test' });
   const { default: express } = await import('express');
-  const { default: cookieParser } = await import('cookie-parser');
   const { default: jwt } = await import('jsonwebtoken');
   const { default: routes } = await import('../../src/routes/index.js');
-  const { sanitizeBody, csrfOriginGuard } = await import('../../src/middleware/security.js');
-  const { corsOrigins } = await import('../../src/config/origins.js');
+  const { sanitizeBody } = await import('../../src/middleware/security.js');
   const { notFound, errorHandler } = await import('../../src/middleware/error.js');
 
   const app = express();
-  app.use(express.json(), cookieParser(), sanitizeBody);
-  app.use('/api', csrfOriginGuard(corsOrigins));
+  app.use(express.json(), sanitizeBody);
   app.use('/api', routes);
   app.use(notFound, errorHandler);
   const server = app.listen(0);
